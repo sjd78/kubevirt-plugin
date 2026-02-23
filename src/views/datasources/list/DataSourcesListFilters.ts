@@ -1,10 +1,11 @@
+import { TFunction } from 'react-i18next';
+
 import { V1beta1DataSource } from '@kubevirt-ui-ext/kubevirt-api/containerized-data-importer';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { RowFilter } from '@openshift-console/dynamic-plugin-sdk';
 
 import { getDataSourceCronJob } from '../utils';
 
-export const getDataImportCronFilter = (): RowFilter<V1beta1DataSource>[] => [
+export const getDataImportCronFilter = (t: TFunction): RowFilter<V1beta1DataSource>[] => [
   {
     filter: ({ selected }, obj) => selected?.length === 0 || Boolean(getDataSourceCronJob(obj)),
     filterGroupName: t('Source'),

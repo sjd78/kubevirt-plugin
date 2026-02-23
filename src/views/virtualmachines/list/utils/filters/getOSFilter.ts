@@ -1,5 +1,6 @@
+import { TFunction } from 'react-i18next';
+
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { getAnnotation } from '@kubevirt-utils/resources/shared';
 import { ANNOTATIONS, OS_NAME_LABELS } from '@kubevirt-utils/resources/template';
 import {
@@ -10,7 +11,7 @@ import {
 import { RowReducerFilter } from '@openshift-console/dynamic-plugin-sdk';
 import { VirtualMachineRowFilterType } from '@virtualmachines/utils';
 
-export const getOSFilter = (): RowReducerFilter<V1VirtualMachine> => {
+export const getOSFilter = (t: TFunction): RowReducerFilter<V1VirtualMachine> => {
   const getOSName = (obj: V1VirtualMachine) => {
     const osAnnotation = getAnnotation(obj?.spec?.template, ANNOTATIONS.os);
     const osLabel = getOperatingSystemName(obj) || getOperatingSystem(obj);

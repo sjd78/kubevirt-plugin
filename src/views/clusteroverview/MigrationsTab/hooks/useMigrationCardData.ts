@@ -11,6 +11,7 @@ import {
 import { ALL_CLUSTERS_KEY, ALL_NAMESPACES_SESSION_KEY } from '@kubevirt-utils/hooks/constants';
 import useActiveNamespace from '@kubevirt-utils/hooks/useActiveNamespace';
 import { useClusterObservabilityDisabled } from '@kubevirt-utils/hooks/useAlerts/utils/useClusterObservabilityDisabled';
+import { useKubevirtTranslation } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import useKubevirtWatchResource from '@kubevirt-utils/hooks/useKubevirtWatchResource/useKubevirtWatchResource';
 import useMigrationPolicies from '@kubevirt-utils/hooks/useMigrationPolicies';
 import useActiveClusterParam from '@multicluster/hooks/useActiveClusterParam';
@@ -46,6 +47,7 @@ export type UseMigrationCardDataAndFiltersValues = {
 type UseMigrationCardDataAndFilters = (duration: string) => UseMigrationCardDataAndFiltersValues;
 
 const useMigrationCardDataAndFilters: UseMigrationCardDataAndFilters = (duration: string) => {
+  const { t } = useKubevirtTranslation();
   const migrationsDefaultConfigurations = useHyperConvergedMigrations();
   const activeNamespace = useActiveNamespace();
   const cluster = useActiveClusterParam();
@@ -109,8 +111,8 @@ const useMigrationCardDataAndFilters: UseMigrationCardDataAndFilters = (duration
   );
 
   const filters = useMemo(
-    () => [...getStatusFilter(), ...getSourceNodeFilter(vmis), ...getTargetNodeFilter(vmis)],
-    [vmis],
+    () => [...getStatusFilter(t), ...getSourceNodeFilter(t, vmis), ...getTargetNodeFilter(t, vmis)],
+    [t, vmis],
   );
 
   const [unfilteredData, data, onFilterChange] = useListPageFilter(migrationsData, filters);

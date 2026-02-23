@@ -1,12 +1,13 @@
+import { TFunction } from 'react-i18next';
+
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { getAffinity, getNodeSelector } from '@kubevirt-utils/resources/vm';
 import { isEmpty } from '@kubevirt-utils/utils/utils';
 import { RowFilter } from '@openshift-console/dynamic-plugin-sdk';
 import { SchedulingKind } from '@search/utils/constants';
 import { VirtualMachineRowFilterType } from '@virtualmachines/utils';
 
-export const getSchedulingFilter = (): RowFilter<V1VirtualMachine> => ({
+export const getSchedulingFilter = (t: TFunction): RowFilter<V1VirtualMachine> => ({
   filter: (input, vm) =>
     isEmpty(input.selected) ||
     (input.selected?.includes(SchedulingKind.AFFINITY_RULES) && !isEmpty(getAffinity(vm))) ||
