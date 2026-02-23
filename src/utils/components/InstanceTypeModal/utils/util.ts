@@ -3,9 +3,8 @@ import { parseSize } from 'xbytes';
 import {
   INSTANCETYPE_CLASS_DISPLAY_NAME,
   INSTANCETYPE_DESCRIPTION_ANNOTATION,
-  REDHAT_COM,
 } from '@kubevirt-utils/components/AddBootableVolumeModal/components/VolumeMetadata/components/InstanceTypeDrilldownSelect/utils/constants';
-import { VENDOR_LABEL } from '@kubevirt-utils/constants/constants';
+import { isRedHatInstanceType } from '@kubevirt-utils/components/AddBootableVolumeModal/components/VolumeMetadata/components/InstanceTypeDrilldownSelect/utils/utils';
 import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import {
   getInstanceTypeCPU,
@@ -16,7 +15,7 @@ import {
   InstanceTypeSize,
   InstanceTypeUnion,
 } from '@kubevirt-utils/resources/instancetype/types';
-import { getAnnotation, getLabel, getName } from '@kubevirt-utils/resources/shared';
+import { getAnnotation, getName } from '@kubevirt-utils/resources/shared';
 
 import { InstanceTypeRecord, MappedInstanceTypes } from './types';
 
@@ -48,7 +47,7 @@ export const mappedInstanceTypesToSelectOptions = (
   instanceTypes: InstanceTypeUnion[],
 ): MappedInstanceTypes =>
   instanceTypes.reduce((acc, it) => {
-    if (getLabel(it, VENDOR_LABEL) === REDHAT_COM) {
+    if (isRedHatInstanceType(it)) {
       const { series, size } = getInstanceTypeSeriesAndSize(it);
       if (!series || !size) {
         return acc;
