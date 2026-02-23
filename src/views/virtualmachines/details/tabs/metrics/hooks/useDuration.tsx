@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
-
 import { SINGLE_VM_DURATION } from '@kubevirt-utils/components/Charts/utils/utils';
 import DurationOption from '@kubevirt-utils/components/DurationOption/DurationOption';
+import useCurrentTime from '@kubevirt-utils/hooks/useCurrentTime';
 import useLocalStorage from '@kubevirt-utils/hooks/useLocalStorage';
 
 type UseDuration = () => {
@@ -16,7 +15,7 @@ const useDuration: UseDuration = () => {
     SINGLE_VM_DURATION,
     DurationOption.FIVE_MIN.toString(),
   );
-  const currentTime = useMemo<number>(() => Date.now(), []);
+  const currentTime = useCurrentTime();
   const timespan = DurationOption?.getMilliseconds(duration);
 
   return { currentTime, duration, setDuration, timespan };

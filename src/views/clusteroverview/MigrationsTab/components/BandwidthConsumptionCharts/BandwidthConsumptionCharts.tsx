@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import xbytes from 'xbytes';
 
 import useResponsiveCharts from '@kubevirt-utils/components/Charts/hooks/useResponsiveCharts';
 import DurationOption from '@kubevirt-utils/components/DurationOption/DurationOption';
 import ErrorAlert from '@kubevirt-utils/components/ErrorAlert/ErrorAlert';
 import LoadingEmptyState from '@kubevirt-utils/components/LoadingEmptyState/LoadingEmptyState';
+import useCurrentTime from '@kubevirt-utils/hooks/useCurrentTime';
 import { useKubevirtTranslation } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { isEmpty } from '@kubevirt-utils/utils/utils';
 import { Bullseye, Divider, Grid } from '@patternfly/react-core';
@@ -21,7 +22,7 @@ type BandwidthConsumptionChartsProps = {
 const BandwidthConsumptionCharts: React.FC<BandwidthConsumptionChartsProps> = ({ duration }) => {
   const { t } = useKubevirtTranslation();
 
-  const currentTime = useMemo(() => Date.now(), []);
+  const currentTime = useCurrentTime();
   const timespan = DurationOption.getMilliseconds(duration);
   const domainX: [number, number] = [currentTime - timespan, currentTime];
   const { ref } = useResponsiveCharts();
