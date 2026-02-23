@@ -11,16 +11,20 @@ import { filterItems, filterNamespaceItems } from '../utils/utils';
 type UseFilteredTreeView = (treeData: TreeViewDataItem[]) => {
   filteredTreeData: TreeViewDataItem[];
   onSearch: (event: ChangeEvent<HTMLInputElement>) => void;
+  searchText: string;
 };
 
 const useFilteredTreeView: UseFilteredTreeView = (treeData) => {
   const isAdmin = useIsAdmin();
   const [showEmptyProjects] = useLocalStorage(SHOW_EMPTY_PROJECTS_KEY, HIDE);
-  const [filteredItems, setFilteredItems] = useState<TreeViewDataItem[]>();
+  const [filteredItems, setFilteredItems] = useState<TreeViewDataItem[]>(null);
+  const [searchText, setSearchText] = useState('');
 
   const onSearch = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const input = event.target.value;
+      setSearchText(input);
+
       if (input === '') {
         return setFilteredItems(null);
       }
@@ -55,7 +59,7 @@ const useFilteredTreeView: UseFilteredTreeView = (treeData) => {
       );
   }, [filteredItems, treeData, showEmptyProjects, isAdmin]);
 
-  return { filteredTreeData, onSearch };
+  return { filteredTreeData, onSearch, searchText };
 };
 
 export default useFilteredTreeView;
