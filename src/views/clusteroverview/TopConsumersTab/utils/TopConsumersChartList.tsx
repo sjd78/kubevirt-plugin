@@ -3,6 +3,7 @@ import React, { FC, useMemo } from 'react';
 import LoadingEmptyState from '@kubevirt-utils/components/LoadingEmptyState/LoadingEmptyState';
 import { ALL_CLUSTERS_KEY } from '@kubevirt-utils/hooks/constants';
 import useActiveNamespace from '@kubevirt-utils/hooks/useActiveNamespace';
+import useCurrentTime from '@kubevirt-utils/hooks/useCurrentTime';
 import { useKubevirtTranslation } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { TopConsumersData } from '@kubevirt-utils/hooks/useKubevirtUserSettings/utils/types';
 import useActiveClusterParam from '@multicluster/hooks/useActiveClusterParam';
@@ -52,9 +53,11 @@ export const TopConsumersChartList: FC<TopConsumersChartListProps> = ({
     [numItemsLabel],
   );
 
+  const currentTime = useCurrentTime();
+
   const [query, loaded] = useFleetPrometheusPoll({
     endpoint: PrometheusEndpoint.QUERY,
-    endTime: Date.now(),
+    endTime: currentTime,
     query: getTopConsumerQuery(
       metric?.getValue(),
       scope?.getValue(),

@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 
+import useCurrentTime from '@kubevirt-utils/hooks/useCurrentTime';
 import useNamespaceParam from '@kubevirt-utils/hooks/useNamespaceParam';
 import useClusterParam from '@multicluster/hooks/useClusterParam';
 import useIsAllClustersPage from '@multicluster/hooks/useIsAllClustersPage';
@@ -16,7 +17,7 @@ const useVMMetrics = () => {
   const cluster = useClusterParam();
   const allClusters = useIsAllClustersPage();
 
-  const currentTime = useMemo<number>(() => Date.now(), []);
+  const currentTime = useCurrentTime();
 
   const queries = useVMListQueries();
 

@@ -4,6 +4,7 @@ import { getPrometheusData } from '@kubevirt-utils/components/Charts/utils/utils
 import DurationOption from '@kubevirt-utils/components/DurationOption/DurationOption';
 import { ALL_CLUSTERS_KEY, ALL_NAMESPACES_SESSION_KEY } from '@kubevirt-utils/hooks/constants';
 import useActiveNamespace from '@kubevirt-utils/hooks/useActiveNamespace';
+import useCurrentTime from '@kubevirt-utils/hooks/useCurrentTime';
 import useActiveClusterParam from '@multicluster/hooks/useActiveClusterParam';
 import { PrometheusEndpoint } from '@openshift-console/dynamic-plugin-sdk';
 import { useFleetPrometheusPoll, useHubClusterName } from '@stolostron/multicluster-sdk';
@@ -36,7 +37,7 @@ const useMetricChartData: UseMetricChartData = (metric) => {
   const activeNamespace = useActiveNamespace();
   const cluster = useActiveClusterParam();
   const [hubClusterName] = useHubClusterName();
-  const currentTime = useMemo(() => Date.now(), []);
+  const currentTime = useCurrentTime();
   const timespan = DurationOption.getMilliseconds(DurationOption.ONE_WEEK.toString());
 
   const [queryData, loaded, error] = useFleetPrometheusPoll({
