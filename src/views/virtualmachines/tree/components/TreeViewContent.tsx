@@ -7,12 +7,19 @@ import {
   Bullseye,
   DrawerPanelBody,
   EmptyState,
+  Stack,
+  Title,
   TreeView,
   TreeViewDataItem,
 } from '@patternfly/react-core';
 
 import useFilteredTreeView from '../hooks/useFilteredTreeView';
 import useTreeViewItemActions from '../hooks/useTreeViewItemActions';
+import {
+  getMatchedClusterItems,
+  getMatchedProjectItems,
+  highlightMatchedTreeItems,
+} from '../utils/utils';
 
 import TreeViewRightClickActionMenu from './TreeViewRightClickActionMenu/TreeViewRightClickActionMenu';
 import PanelToggleButton from './PanelToggleButton';
@@ -38,7 +45,7 @@ const TreeViewContent: FC<TreeViewContentProps> = ({
   treeData,
 }) => {
   const { t } = useKubevirtTranslation();
-  const { filteredTreeData, onSearch } = useFilteredTreeView(treeData);
+  const { filteredTreeData, onSearch, searchText } = useFilteredTreeView(treeData);
 
   const { addListeners, hideMenu, triggerElement } = useTreeViewItemActions(treeData);
 
@@ -56,6 +63,25 @@ const TreeViewContent: FC<TreeViewContentProps> = ({
     return panelToggleButton;
   }
 
+  const filteredProjectsCount = getMatchedProjectItems(filteredTreeData, searchText).length;
+  const filteredClustersCount = getMatchedClusterItems(filteredTreeData, searchText).length;
+
+  const getSearchResultInfo = () => {
+    if (filteredClustersCount && filteredProjectsCount) {
+      return t('{{clustersCount}} clusters, {{projectsCount}} projects found', {
+        clustersCount: filteredClustersCount,
+        projectsCount: filteredProjectsCount,
+      });
+    }
+    if (filteredClustersCount) {
+      return t('{{clustersCount}} clusters found', { clustersCount: filteredClustersCount });
+    }
+    if (filteredProjectsCount) {
+      return t('{{projectsCount}} projects found', { projectsCount: filteredProjectsCount });
+    }
+    return undefined;
+  };
+
   return (
     <>
       {!isSmallScreen && panelToggleButton}
@@ -63,19 +89,27 @@ const TreeViewContent: FC<TreeViewContentProps> = ({
       <DrawerPanelBody className="vms-tree-view-body">
         {isEmpty(filteredTreeData) ? (
           <EmptyState
-            headingLevel="h4"
+            headingLevel="h6"
             titleText={t('No projects with VirtualMachines found')}
             variant="xs"
           />
         ) : (
-          <TreeView
-            activeItems={[selectedTreeItem]}
-            data={filteredTreeData}
-            hasBadges={loaded}
-            hasSelectableNodes
-            onExpand={addListeners}
-            onSelect={onSelect}
-          />
+          <Stack hasGutter>
+            {searchText && (
+              <Title className="pf-v6-u-text-align-center" headingLevel="h6">
+                {getSearchResultInfo()}
+              </Title>
+            )}
+            <TreeView
+              activeItems={[selectedTreeItem]}
+              allExpanded={searchText ? true : undefined}
+              data={highlightMatchedTreeItems(filteredTreeData, searchText)}
+              hasBadges={loaded}
+              hasSelectableNodes
+              onExpand={addListeners}
+              onSelect={onSelect}
+            />
+          </Stack>
         )}
         <TreeViewRightClickActionMenu hideMenu={hideMenu} triggerElement={triggerElement} />
       </DrawerPanelBody>

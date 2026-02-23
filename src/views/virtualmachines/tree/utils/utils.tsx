@@ -351,6 +351,18 @@ export const createMultiClusterTreeViewData = (
   return [allClustersTreeItem];
 };
 
+const nameMatchesSearch = (item: TreeViewDataItem, searchText: string): boolean =>
+  (item.name as string).toLowerCase().includes(searchText.toLowerCase());
+
+const isClusterItem = (item: TreeViewDataItem): boolean =>
+  item.id?.startsWith(CLUSTER_SELECTOR_PREFIX);
+
+const isProjectItem = (item: TreeViewDataItem): boolean =>
+  item.id?.startsWith(PROJECT_SELECTOR_PREFIX);
+
+const isFolderItem = (item: TreeViewDataItem): boolean =>
+  item.id?.startsWith(FOLDER_SELECTOR_PREFIX);
+
 // searches for clusters, projects and folders
 export const filterItems = (item: TreeViewDataItem, input: string) => {
   if (isTreeViewVMItem(item)) {
@@ -358,7 +370,7 @@ export const filterItems = (item: TreeViewDataItem, input: string) => {
   }
 
   if (
-    (item.name as string).toLowerCase().includes(input.toLowerCase()) &&
+    nameMatchesSearch(item, input) &&
     item.id !== ALL_NAMESPACES_SESSION_KEY &&
     item.id !== ALL_CLUSTERS_ID
   ) {
@@ -385,11 +397,11 @@ export const filterNamespaceItems = (
   const hasVMs =
     item.id !== ALL_NAMESPACES_SESSION_KEY &&
     item.id !== ALL_CLUSTERS_ID &&
-    !item.id.startsWith(CLUSTER_SELECTOR_PREFIX) &&
+    !isClusterItem(item) &&
     item.children?.length > 0;
   const projectName = item.name as string;
 
-  if (item.id.startsWith(PROJECT_SELECTOR_PREFIX)) {
+  if (isProjectItem(item)) {
     const isSystemNS = isSystemNamespace(projectName);
 
     if (hasVMs) return true;
@@ -409,7 +421,7 @@ export const filterNamespaceItems = (
   }
 };
 
-export const getAllTreeViewItems = (treeData: TreeViewDataItem[]) => {
+export const getAllTreeViewItems = (treeData: TreeViewDataItem[]): TreeViewDataItem[] => {
   return treeData
     ?.map((treeItem) => [treeItem, ...getAllTreeViewItems(treeItem.children || [])])
     ?.flat();
@@ -426,14 +438,46 @@ export const getAllRightClickableTreeViewItems = (
   getAllTreeViewItems(treeData).filter((treeItem) => !treeItem.id.startsWith(ALL_CLUSTERS_ID));
 
 export const getAllTreeViewFolderItems = (treeData: TreeViewDataItem[]): TreeViewDataItem[] =>
-  getAllTreeViewItems(treeData)?.filter((treeItem) =>
-    treeItem.id.startsWith(FOLDER_SELECTOR_PREFIX),
-  ) || [];
+  getAllTreeViewItems(treeData)?.filter((treeItem) => isFolderItem(treeItem)) || [];
 
 export const getAllTreeViewProjectItems = (treeData: TreeViewDataItem[]): TreeViewDataItem[] =>
-  getAllTreeViewItems(treeData).filter((treeItem) =>
-    treeItem.id.startsWith(PROJECT_SELECTOR_PREFIX),
-  );
+  getAllTreeViewItems(treeData).filter((treeItem) => isProjectItem(treeItem));
+
+export const getAllTreeViewClusterItems = (treeData: TreeViewDataItem[]): TreeViewDataItem[] =>
+  getAllTreeViewItems(treeData).filter((treeItem) => isClusterItem(treeItem));
+
+export const getMatchedProjectItems = (
+  treeData: TreeViewDataItem[],
+  searchText: string,
+): TreeViewDataItem[] =>
+  getAllTreeViewProjectItems(treeData).filter((item) => nameMatchesSearch(item, searchText));
+
+export const getMatchedClusterItems = (
+  treeData: TreeViewDataItem[],
+  searchText: string,
+): TreeViewDataItem[] =>
+  getAllTreeViewClusterItems(treeData).filter((item) => nameMatchesSearch(item, searchText));
+
+export const highlightMatchedTreeItems = (
+  treeData: TreeViewDataItem[],
+  searchText: string,
+): TreeViewDataItem[] => {
+  if (!searchText) return treeData;
+
+  return treeData.map((item) => {
+    const copy = { ...item };
+
+    if ((isProjectItem(copy) || isClusterItem(copy)) && nameMatchesSearch(copy, searchText)) {
+      copy.name = <b>{copy.name}</b>;
+    }
+
+    if (copy.children) {
+      copy.children = highlightMatchedTreeItems(copy.children, searchText);
+    }
+
+    return copy;
+  });
+};
 
 const removeFolderLabelQuery = (query: string) => {
   const queryParams = new URLSearchParams(query);
