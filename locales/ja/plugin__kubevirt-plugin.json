@@ -828,6 +828,7 @@
   "Hide guest credentials for non-privileged users": "特権のないユーザーのゲスト認証情報を非表示にする",
   "Hide password": "パスワードの非表示",
   "Hide username": "ユーザー名を非表示にする",
+  "Hide YAML tab": "Hide YAML tab",
   "High availability": "高可用性",
   "High performance": "高パフォーマンス",
   "History": "履歴",
