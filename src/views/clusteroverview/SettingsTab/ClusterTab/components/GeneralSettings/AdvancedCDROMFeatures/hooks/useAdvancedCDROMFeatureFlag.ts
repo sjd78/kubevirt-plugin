@@ -29,7 +29,7 @@ const useAdvancedCDROMFeatureFlag = () => {
   const isAdmin = useIsAdmin();
 
   const featureEnabled = Boolean(
-    hyperConvergeConfiguration?.spec?.featureGates?.[DECLARATIVE_HOTPLUG_VOLUMES_FEATURE_GATE],
+    hyperConvergeConfiguration?.spec?.featureGates?.declarativeHotplugVolumes,
   );
 
   return {
@@ -41,8 +41,11 @@ const useAdvancedCDROMFeatureFlag = () => {
         return;
       }
       setLoading(true);
-      await updateDeclarativeHotplugVolumesFeatureGate(hyperConvergeConfiguration, val);
-      setLoading(false);
+      try {
+        return await updateDeclarativeHotplugVolumesFeatureGate(hyperConvergeConfiguration, val);
+      } finally {
+        setLoading(false);
+      }
     },
   };
 };

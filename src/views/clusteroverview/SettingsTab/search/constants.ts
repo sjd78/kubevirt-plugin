@@ -1,4 +1,5 @@
 export const CLUSTER_TAB_IDS = {
+  advancedCDROMFeatures: 'advanced-cdrom-features',
   automaticImagesDownload: 'automatic-images-download',
   automaticSubscriptionRhel: 'automatic-subscription-rhel',
   bootableVolumesProject: 'bootable-volumes-project',
@@ -35,6 +36,7 @@ export const SEARCH_ITEM_CHILDREN_TREE = {
     CLUSTER_TAB_IDS.templatesManagement,
     CLUSTER_TAB_IDS.vmActionsConfirmation,
     CLUSTER_TAB_IDS.hideYamlTab,
+    CLUSTER_TAB_IDS.advancedCDROMFeatures,
   ],
   [CLUSTER_TAB_IDS.guestManagement]: [CLUSTER_TAB_IDS.automaticSubscriptionRhel],
   [CLUSTER_TAB_IDS.templatesManagement]: [

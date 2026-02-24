@@ -9,6 +9,7 @@ import { Stack, StackItem } from '@patternfly/react-core';
 
 import ExpandSection from '../../../ExpandSection/ExpandSection';
 
+import AdvancedCDROMFeatures from './AdvancedCDROMFeatures/AdvancedCDROMFeatures';
 import HideYamlTab from './HideYamlTab/HideYamlTab';
 import LiveMigrationSection from './LiveMigrationSection/LiveMigrationSection';
 import MemoryDensity from './MemoryDensity/MemoryDensity';
@@ -51,6 +52,9 @@ const GeneralSettings: FC<GeneralSettingsProps> = ({ hyperConvergeConfiguration,
         </StackItem>
         <StackItem isFilled>
           <HideYamlTab newBadge={newBadge} />
+        </StackItem>
+        <StackItem isFilled>
+          <AdvancedCDROMFeatures newBadge={newBadge} />
         </StackItem>
       </Stack>
     </ExpandSection>

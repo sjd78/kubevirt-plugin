@@ -28,6 +28,8 @@ export const getClusterTabIds: SearchItemGetter = () => [
   { id: CLUSTER_TAB_IDS.bootableVolumesProject, title: t('Bootable volumes project') },
   { id: CLUSTER_TAB_IDS.templatesProject, title: t('Templates project') },
   { id: CLUSTER_TAB_IDS.vmActionsConfirmation, title: t('VirtualMachine actions confirmation') },
+  { id: CLUSTER_TAB_IDS.hideYamlTab, title: t('Hide YAML tab') },
+  { id: CLUSTER_TAB_IDS.advancedCDROMFeatures, title: t('Advanced CD-ROM features') },
   { id: CLUSTER_TAB_IDS.guestManagement, title: t('Guest management') },
   { id: CLUSTER_TAB_IDS.loadBalance, title: t('Load balance') },
   { id: CLUSTER_TAB_IDS.resourceManagement, title: t('Resource management') },

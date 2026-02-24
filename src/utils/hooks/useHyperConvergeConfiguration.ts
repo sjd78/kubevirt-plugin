@@ -18,6 +18,7 @@ export type HyperConverged = K8sResourceCommon & {
     evictionStrategy?: string;
     featureGates: {
       autoResourceLimits?: boolean;
+      declarativeHotplugVolumes?: boolean;
       deployKubeSecondaryDNS?: boolean;
       deployTektonTaskResources?: boolean;
       disableMDevConfiguration?: boolean;

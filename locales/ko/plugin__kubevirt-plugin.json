@@ -828,6 +828,7 @@
   "Hide guest credentials for non-privileged users": "권한이 없는 사용자의 게스트 인증 정보 숨기기",
   "Hide password": "암호 숨기기",
   "Hide username": "사용자 이름 숨기기",
+  "Hide YAML tab": "Hide YAML tab",
   "High availability": "고가용성",
   "High performance": "고성능",
   "History": "내역",
