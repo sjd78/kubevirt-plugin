@@ -11,7 +11,7 @@ const U1_SM_IT = 'u1.small';
 const O1_MD_IT = 'o1.medium';
 const CX1_LG_IT = 'cx1.large';
 const NAME_CELL = 'td[data-label="name"]';
-const ADV_SRCH_BTN = 'vm-advanced-search';
+const ADV_SRCH_BTN = 'vm-advanced-search-button';
 
 const searchVMsListed = (existence: boolean) => {
   SRCH_VMS.forEach((name) => {

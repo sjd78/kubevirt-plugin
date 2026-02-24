@@ -19,3 +19,5 @@ export const skipRowFilterPrefix = new Set([
 export const validSearchQueryParams: string[] = Object.values(VirtualMachineRowFilterType).map(
   (type) => (skipRowFilterPrefix.has(type) ? type : `rowFilter-${type}`),
 );
+
+export const VM_SEARCH_INPUT_ID = 'vm-search-input';

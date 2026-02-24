@@ -36,11 +36,11 @@ const SearchSuggestBoxFooter: FC<SearchSuggestBoxFooterProps> = ({
               navigateToSearchResults({ name: searchQuery });
             }}
           >
-            {t('Search')}
+            {t('Search all')}
           </Button>
           <Button
             data-test="results-advanced-search"
-            icon={<AdvancedSearchIcon />}
+            icon={<AdvancedSearchIcon isLarge />}
             iconPosition="end"
             onClick={onAdvancedSearchClick}
             variant={ButtonVariant.secondary}

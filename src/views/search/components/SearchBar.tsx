@@ -1,19 +1,10 @@
 import React, { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import debounce from 'lodash/debounce';
 
 import { useModal } from '@kubevirt-utils/components/ModalProvider/ModalProvider';
 import { useKubevirtTranslation } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { OnFilterChange } from '@openshift-console/dynamic-plugin-sdk';
-import {
-  Button,
-  InputGroup,
-  InputGroupItem,
-  Menu,
-  Popper,
-  SearchInput,
-  SearchInputProps,
-  Tooltip,
-} from '@patternfly/react-core';
+import { Button, InputGroup, InputGroupItem, Menu, Popper } from '@patternfly/react-core';
+import { VM_SEARCH_INPUT_ID } from '@search/utils/constants';
 import { SearchSuggestResult } from '@search/utils/types';
 import { useVirtualMachineSearchSuggestions } from '@virtualmachines/search/hooks/useVirtualMachineSearchSuggestions';
 
@@ -23,9 +14,9 @@ import { AdvancedSearchInputs } from '../utils/types';
 
 import AdvancedSearchModal from './AdvancedSearchModal/AdvancedSearchModal';
 import SearchSuggestBox from './SearchSuggestBox/SearchSuggestBox';
-import AdvancedSearchIcon from './AdvancedSearchIcon';
 import SavedSearchesDropdown from './SavedSearchesDropdown';
 import SaveSearchModal from './SaveSearchModal';
+import SearchTextInput from './SearchTextInput';
 
 import './search-bar.scss';
 
@@ -61,17 +52,10 @@ const SearchBar: FC<SearchBarProps> = ({ onFilterChange }) => {
       setIsSearchSuggestBoxOpen(false);
     }
   }, [searchQuery]);
+
   const isSearchInProgress = useMemo(() => {
     return searchQuery ? !vmSuggestionsLoaded : false;
   }, [searchQuery, vmSuggestionsLoaded]);
-
-  const onSearchInputChange = debounce<SearchInputProps['onChange']>((_, value) => {
-    setSearchQuery(value);
-  }, 500);
-
-  const onSearchInputClear = () => {
-    setSearchQuery('');
-  };
 
   const onEnterKeyDown = () => {
     if (isSearchSuggestBoxOpen && searchSuggestResult?.resources.length > 0) {
@@ -134,45 +118,21 @@ const SearchBar: FC<SearchBarProps> = ({ onFilterChange }) => {
           </Menu>
         }
         trigger={
-          <SearchInput
-            onKeyDown={(e) => {
-              if (!searchQuery) {
-                return;
-              }
-              if (e.key === 'Enter') {
-                onEnterKeyDown();
-              }
-              if (e.key === 'Escape') {
-                setIsSearchSuggestBoxOpen(false);
-              }
-            }}
-            data-test="vm-search-input"
-            id="vm-search-input"
-            onChange={onSearchInputChange}
-            onClear={onSearchInputClear}
-            onClick={() => searchQuery && setIsSearchSuggestBoxOpen(true)}
-            placeholder={t('Search VirtualMachines')}
-            ref={searchInputRef}
-            value={searchQuery}
+          <SearchTextInput
+            inputRef={searchInputRef}
+            onEnterKeyDown={onEnterKeyDown}
+            onOpenAdvancedSearch={() => showSearchModal()}
+            setIsSearchSuggestBoxOpen={setIsSearchSuggestBoxOpen}
+            setSearchQuery={setSearchQuery}
           />
         }
-        appendTo={() => document.querySelector('#vm-search-input')}
+        appendTo={() => document.querySelector(`#${VM_SEARCH_INPUT_ID}`)}
         enableFlip={false}
         isVisible={isSearchSuggestBoxOpen}
         onDocumentClick={() => setIsSearchSuggestBoxOpen(false)}
         popperRef={searchSuggestBoxRef}
         triggerRef={searchInputRef}
       />
-      <Tooltip content={t('Advanced search')}>
-        <Button
-          onClick={() => {
-            showSearchModal();
-          }}
-          data-test="vm-advanced-search"
-          icon={<AdvancedSearchIcon isLarge />}
-          variant="control"
-        />
-      </Tooltip>
       <InputGroupItem>
         <Button
           data-test="save-search"
