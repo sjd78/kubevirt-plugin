@@ -1,5 +1,6 @@
+import { TFunction } from 'react-i18next';
+
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { RowMatchFilter } from '@openshift-console/dynamic-plugin-sdk';
 import {
   isErrorPrintableStatus,
@@ -17,7 +18,7 @@ export const statusFilterItems = [
   ErrorStatus,
 ];
 
-export const getStatusFilter = (): RowMatchFilter<V1VirtualMachine> => ({
+export const getStatusFilter = (t: TFunction): RowMatchFilter<V1VirtualMachine> => ({
   filter: (statuses, obj) => {
     const status = obj?.status?.printableStatus;
     const isError = statuses.selected.includes(ErrorStatus.id) && isErrorPrintableStatus(status);

@@ -1,11 +1,12 @@
 import { IoK8sApiCoreV1ConfigMap } from '@kubevirt-ui-ext/kubevirt-api/kubernetes';
+import { useKubevirtTranslation } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import {
   OnFilterChange,
   RowFilter,
   useListPageFilter,
 } from '@openshift-console/dynamic-plugin-sdk';
 
-import { filters } from '../../utils/filters';
+import { getFilters } from '../../utils/filters';
 
 type UseCheckupsStorageFilters = (
   data: IoK8sApiCoreV1ConfigMap[],
@@ -17,6 +18,8 @@ type UseCheckupsStorageFilters = (
 ];
 
 const useCheckupsStorageListFilters: UseCheckupsStorageFilters = (data) => {
+  const { t } = useKubevirtTranslation();
+  const filters = getFilters(t);
   const [unfilterData, dataFilters, onFilterChange] = useListPageFilter<
     IoK8sApiCoreV1ConfigMap,
     IoK8sApiCoreV1ConfigMap

@@ -1,5 +1,6 @@
+import { TFunction } from 'react-i18next';
+
 import { IoK8sApiCoreV1ConfigMap } from '@kubevirt-ui-ext/kubevirt-api/kubernetes';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { FilterValue, RowFilter } from '@openshift-console/dynamic-plugin-sdk';
 
 const status = {
@@ -19,7 +20,7 @@ const statusHandler = {
 
 const statusMapper = new Proxy(status, statusHandler);
 
-export const filters: RowFilter<IoK8sApiCoreV1ConfigMap>[] = [
+export const getFilters = (t: TFunction): RowFilter<IoK8sApiCoreV1ConfigMap>[] => [
   {
     filter: ({ selected }: FilterValue, obj: IoK8sApiCoreV1ConfigMap) => {
       const value = statusMapper[(obj?.data, obj?.data?.['status.succeeded'])];

@@ -1,11 +1,15 @@
+import { TFunction } from 'react-i18next';
+
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { getArchitecture } from '@kubevirt-utils/resources/vm/utils/selectors';
 import { isEmpty } from '@kubevirt-utils/utils/utils';
 import { RowFilter } from '@openshift-console/dynamic-plugin-sdk';
 import { VirtualMachineRowFilterType } from '@virtualmachines/utils';
 
-export const getArchitectureFilter = (vms: V1VirtualMachine[]): RowFilter<V1VirtualMachine> => ({
+export const getArchitectureFilter = (
+  t: TFunction,
+  vms: V1VirtualMachine[],
+): RowFilter<V1VirtualMachine> => ({
   filter: (input, vm) => {
     const selectedArchitectures = input.selected;
 

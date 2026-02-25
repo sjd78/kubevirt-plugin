@@ -1,9 +1,10 @@
+import { TFunction } from 'react-i18next';
+
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { RowFilter } from '@openshift-console/dynamic-plugin-sdk';
 import { VirtualMachineRowFilterType } from '@virtualmachines/utils';
 
-export const getDescriptionFilter = (): RowFilter<V1VirtualMachine> => ({
+export const getDescriptionFilter = (t: TFunction): RowFilter<V1VirtualMachine> => ({
   filter: (input, obj) => {
     const search = input.selected?.[0];
 

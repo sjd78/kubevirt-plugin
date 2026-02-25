@@ -1,6 +1,7 @@
 import { VirtualMachineModelGroupVersionKind } from '@kubevirt-ui-ext/kubevirt-api/console';
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
 import { useClusterFilter } from '@kubevirt-utils/hooks/useClusterFilter';
+import { useKubevirtTranslation } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { useProjectFilter } from '@kubevirt-utils/hooks/useProjectFilter';
 import useIsACMPage from '@multicluster/useIsACMPage';
 import { RowFilter } from '@openshift-console/dynamic-plugin-sdk';
@@ -29,6 +30,7 @@ export const useVMListFilters = (
   filtersWithSelect: RowFilter<V1VirtualMachine>[];
   hiddenFilters: RowFilter<V1VirtualMachine>[];
 } => {
+  const { t } = useKubevirtTranslation();
   const isACMPage = useIsACMPage();
 
   const { resources: vms } = useAccessibleResources<V1VirtualMachine>(
@@ -37,20 +39,20 @@ export const useVMListFilters = (
 
   const clusterFilter = useClusterFilter();
   const projectFilter = useProjectFilter<V1VirtualMachine>();
-  const statusFilter = getStatusFilter();
-  const osFilters = getOSFilter();
+  const statusFilter = getStatusFilter(t);
+  const osFilters = getOSFilter(t);
   const storageClassFilter = useStorageClassFilter(vms, pvcMapper);
-  const hwDevicesFilter = getHWDevicesFilter();
-  const schedulingFilter = getSchedulingFilter();
+  const hwDevicesFilter = getHWDevicesFilter(t);
+  const schedulingFilter = getSchedulingFilter(t);
   const nodesFilter = useNodesFilter(vmiMapper);
 
-  const descriptionFilter = getDescriptionFilter();
-  const cpuFilter = getCPUFilter(vmiMapper);
-  const memoryFilter = getMemoryFilter(vmiMapper);
-  const dateFromFilter = getDateFilter('from');
-  const dateToFilter = getDateFilter('to');
-  const architectureFilter = getArchitectureFilter(vms);
-  const ipFilter = getIPFilter(vmiMapper);
+  const descriptionFilter = getDescriptionFilter(t);
+  const cpuFilter = getCPUFilter(t, vmiMapper);
+  const memoryFilter = getMemoryFilter(t, vmiMapper);
+  const dateFromFilter = getDateFilter(t, 'from');
+  const dateToFilter = getDateFilter(t, 'to');
+  const architectureFilter = getArchitectureFilter(t, vms);
+  const ipFilter = getIPFilter(t, vmiMapper);
   const nadFilter = getNADsFilter();
 
   const filtersWithSelect = [

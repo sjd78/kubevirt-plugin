@@ -8,13 +8,14 @@ import { getStatusFilter, statusFilterItems } from '../getStatusFilter';
 import { createMockVM } from './mockVM';
 
 // Mock translations
+const t = (str: string) => str;
 jest.mock('@kubevirt-utils/hooks/useKubevirtTranslation', () => ({
   t: (str: string) => str,
   useKubevirtTranslation: () => ({ t: (str: string) => str }),
 }));
 
 describe('VM Status Filter', () => {
-  const statusFilter = getStatusFilter();
+  const statusFilter = getStatusFilter(t);
 
   describe('filter function', () => {
     it('should return true when no statuses are selected', () => {

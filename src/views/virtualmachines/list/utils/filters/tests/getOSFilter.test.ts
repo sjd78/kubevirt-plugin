@@ -5,13 +5,14 @@ import { getOSFilter } from '../getOSFilter';
 import { createMockVM } from './mockVM';
 
 // Mock translations
+const t = (str: string) => str;
 jest.mock('@kubevirt-utils/hooks/useKubevirtTranslation', () => ({
   t: (str: string) => str,
   useKubevirtTranslation: () => ({ t: (str: string) => str }),
 }));
 
 describe('VM OS Filter', () => {
-  const osFilter = getOSFilter();
+  const osFilter = getOSFilter(t);
 
   describe('filter function', () => {
     it('should return true when no OS is selected', () => {

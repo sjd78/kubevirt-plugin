@@ -1,11 +1,12 @@
+import { TFunction } from 'react-i18next';
+
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { getVMIIPAddresses } from '@kubevirt-utils/resources/vmi';
 import { RowFilter } from '@openshift-console/dynamic-plugin-sdk';
 import { compareCIDR, VirtualMachineRowFilterType } from '@virtualmachines/utils';
 import { getVMIFromMapper, VMIMapper } from '@virtualmachines/utils/mappers';
 
-export const getIPFilter = (vmiMapper: VMIMapper): RowFilter<V1VirtualMachine> => ({
+export const getIPFilter = (t: TFunction, vmiMapper: VMIMapper): RowFilter<V1VirtualMachine> => ({
   filter: (input, obj) => {
     const search = input.selected?.[0];
 

@@ -1,5 +1,5 @@
 import { V1VirtualMachine } from '@kubevirt-ui-ext/kubevirt-api/kubevirt';
-import { t } from '@kubevirt-utils/hooks/useKubevirtTranslation';
+import { useKubevirtTranslation } from '@kubevirt-utils/hooks/useKubevirtTranslation';
 import { useStorageClasses } from '@kubevirt-utils/hooks/useStorageClasses';
 import { getName, getNamespace } from '@kubevirt-utils/resources/shared';
 import { isEmpty } from '@kubevirt-utils/utils/utils';
@@ -11,6 +11,7 @@ export const useStorageClassFilter = (
   vms: V1VirtualMachine[],
   pvcMapper: PVCMapper,
 ): RowFilter<V1VirtualMachine> => {
+  const { t } = useKubevirtTranslation();
   const { allStorageClasses, storageClassesByVM } = useStorageClasses(vms, pvcMapper);
 
   return {

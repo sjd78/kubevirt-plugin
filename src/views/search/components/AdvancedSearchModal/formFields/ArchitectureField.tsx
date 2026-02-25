@@ -18,8 +18,8 @@ const ArchitectureField: FC<ArchitectureFieldProps> = ({ vms }) => {
   const { setValue, value } = useAdvancedSearchField(VirtualMachineRowFilterType.Architecture);
 
   const allArchitectures = useMemo(
-    () => getArchitectureFilter(vms).items.map((item) => item.id),
-    [vms],
+    () => getArchitectureFilter(t, vms).items.map((item) => item.id),
+    [t, vms],
   );
 
   if (allArchitectures.length <= 1) {
