@@ -1,0 +1,143 @@
+name: IBM Cloud Hot Cluster Auto-Teardown
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: 'Cluster name to check'
+        required: true
+        default: 'kubevirt-plugin-ci'
+        type: string
+      idle_threshold_minutes:
+        description: 'Idle threshold in minutes before teardown'
+        required: true
+        default: '120'
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  CLUSTER_NAME: ${{ inputs.cluster_name || 'kubevirt-plugin-ci' }}
+  IDLE_THRESHOLD_MINUTES: ${{ inputs.idle_threshold_minutes || '120' }}
+
+jobs:
+  check-and-teardown:
+    name: Check Idle & Teardown
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Setup IBM Cloud CLI
+        uses: IBM/actions-ibmcloud-cli@v1
+        with:
+          api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
+          plugins: kubernetes-service
+
+      - name: Check if cluster exists
+        id: check_cluster
+        run: |
+          if ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" &>/dev/null; then
+            STATE=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --output json 2>/dev/null | jq -r '.state // "unknown"')
+            echo "Cluster '${CLUSTER_NAME}' exists (state: ${STATE})"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Cluster '${CLUSTER_NAME}' does not exist, nothing to do"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for active CI jobs
+        if: steps.check_cluster.outputs.exists == 'true'
+        id: check_activity
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking for in-progress or queued jobs on 'kubevirt-plugin-ci' runners..."
+
+          IN_PROGRESS=$(gh api "/repos/${{ github.repository }}/actions/runs?status=in_progress" \
+            --jq '[.workflow_runs[] | select(.name != "Hot Cluster Auto-Teardown")] | length' 2>/dev/null || echo "0")
+
+          QUEUED=$(gh api "/repos/${{ github.repository }}/actions/runs?status=queued" \
+            --jq '[.workflow_runs[] | select(.name != "Hot Cluster Auto-Teardown")] | length' 2>/dev/null || echo "0")
+
+          echo "In-progress runs (excluding auto-teardown): ${IN_PROGRESS}"
+          echo "Queued runs (excluding auto-teardown): ${QUEUED}"
+
+          if [[ "${IN_PROGRESS}" -gt 0 || "${QUEUED}" -gt 0 ]]; then
+            echo "Active CI jobs detected, skipping teardown"
+            echo "should_teardown=false" >> "$GITHUB_OUTPUT"
+            echo "reason=Active CI jobs running (${IN_PROGRESS} in-progress, ${QUEUED} queued)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Checking last completed run timestamp..."
+          LAST_RUN_TIME=$(gh api "/repos/${{ github.repository }}/actions/runs?status=completed&per_page=5" \
+            --jq '[.workflow_runs[] | select(.name != "Hot Cluster Auto-Teardown" and .name != "Hot Cluster Setup" and .name != "Hot Cluster Teardown")] | sort_by(.updated_at) | last | .updated_at // empty' 2>/dev/null || true)
+
+          if [[ -z "${LAST_RUN_TIME}" ]]; then
+            echo "No completed CI runs found, checking cluster creation time as fallback..."
+            CLUSTER_CREATED=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --output json 2>/dev/null | jq -r '.createdDate // empty')
+            if [[ -n "${CLUSTER_CREATED}" ]]; then
+              LAST_RUN_TIME="${CLUSTER_CREATED}"
+              echo "Using cluster creation time: ${LAST_RUN_TIME}"
+            else
+              echo "Cannot determine last activity time, skipping teardown for safety"
+              echo "should_teardown=false" >> "$GITHUB_OUTPUT"
+              echo "reason=Cannot determine last activity timestamp" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          echo "Last activity: ${LAST_RUN_TIME}"
+
+          LAST_EPOCH=$(date -d "${LAST_RUN_TIME}" +%s 2>/dev/null || date -u -d "${LAST_RUN_TIME}" +%s)
+          NOW_EPOCH=$(date +%s)
+          IDLE_SECONDS=$((NOW_EPOCH - LAST_EPOCH))
+          IDLE_MINUTES=$((IDLE_SECONDS / 60))
+          THRESHOLD=${{ env.IDLE_THRESHOLD_MINUTES }}
+
+          echo "Idle for ${IDLE_MINUTES} minutes (threshold: ${THRESHOLD} minutes)"
+
+          if [[ ${IDLE_MINUTES} -ge ${THRESHOLD} ]]; then
+            echo "Cluster has been idle for ${IDLE_MINUTES} minutes (>= ${THRESHOLD}), will tear down"
+            echo "should_teardown=true" >> "$GITHUB_OUTPUT"
+            echo "reason=Idle for ${IDLE_MINUTES} minutes (threshold: ${THRESHOLD})" >> "$GITHUB_OUTPUT"
+          else
+            REMAINING=$((THRESHOLD - IDLE_MINUTES))
+            echo "Cluster is not idle long enough (${REMAINING} minutes remaining)"
+            echo "should_teardown=false" >> "$GITHUB_OUTPUT"
+            echo "reason=Idle for ${IDLE_MINUTES} minutes, ${REMAINING} minutes remaining before threshold" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger teardown
+        if: steps.check_cluster.outputs.exists == 'true' && steps.check_activity.outputs.should_teardown == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ibmc-cluster-teardown.yml',
+              ref: context.ref,
+              inputs: {
+                cluster_name: '${{ env.CLUSTER_NAME }}'
+              }
+            });
+            core.info('Teardown workflow triggered for cluster ${{ env.CLUSTER_NAME }}');
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Auto-Teardown Check" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Check | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cluster | \`${CLUSTER_NAME}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cluster Exists | \`${{ steps.check_cluster.outputs.exists }}\` |" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ steps.check_cluster.outputs.exists }}" == "true" ]]; then
+            echo "| Should Teardown | \`${{ steps.check_activity.outputs.should_teardown }}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Reason | ${{ steps.check_activity.outputs.reason }} |" >> "$GITHUB_STEP_SUMMARY"
+          fi

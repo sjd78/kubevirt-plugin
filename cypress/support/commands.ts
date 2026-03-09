@@ -103,6 +103,17 @@ Cypress.Commands.add('beforeSpec', () => {
     .should('be.visible')
     .click();
   cy.byTestID('vm-list-tab', { timeout: 180000 }).should('be.visible');
+  cy.get('body').then(($body) => {
+    // Shared clusters may show the welcome modal; dismiss it when present.
+    if ($body.find('#welcome-modal-checkbox').length) {
+      cy.get('#welcome-modal-checkbox').check({ force: true });
+      cy.get('button[aria-label="Close"]').click({ force: true });
+      cy.get('#welcome-modal-checkbox').should('not.exist');
+    }
+  });
+  cy.contains('[data-test-id="resource-title"]', 'Virtualization', { timeout: 180000 }).should(
+    'exist',
+  );
 });
 
 Cypress.Commands.add('deleteVM', (vms: string[]) => {
