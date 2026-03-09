@@ -1,0 +1,162 @@
+name: Hot Cluster CI Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_spec:
+        description: 'Cypress test spec to run'
+        required: true
+        default: 'tests/gating.cy.ts'
+        type: string
+      cluster_name:
+        description: 'Cluster name'
+        required: true
+        default: 'kubevirt-plugin-ci'
+        type: string
+
+jobs:
+  cluster-health-check:
+    name: Cluster Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      console_url: ${{ steps.health.outputs.console_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install oc CLI
+        run: |
+          curl -fsSL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz \
+            | tar xzf - -C /usr/local/bin oc kubectl
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "${HOME}/.kube"
+          echo "${{ secrets.HOT_CLUSTER_KUBECONFIG }}" > "${HOME}/.kube/config"
+          chmod 600 "${HOME}/.kube/config"
+
+      - name: Run health checks
+        id: health
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash ci-scripts/check-cluster-health.sh
+
+          CONSOLE_URL=$(oc get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}' 2>/dev/null || echo "")
+          echo "console_url=${CONSOLE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify runners registered
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking for registered self-hosted runners..."
+          ONLINE_COUNT=$(gh api "/repos/${{ github.repository }}/actions/runners" \
+            --jq '[.runners[] | select(.status == "online") | select(.labels[].name == "hot-cluster")] | length' 2>/dev/null || echo "0")
+
+          echo "Online 'hot-cluster' runners: ${ONLINE_COUNT}"
+
+          if [[ "${ONLINE_COUNT}" -lt 1 ]]; then
+            echo "ERROR: No online runners with label 'hot-cluster' found."
+            echo "The self-hosted runner job would queue indefinitely."
+            echo "Ensure ARC is installed and runners are registered."
+            exit 1
+          fi
+
+          echo "Runner check passed: ${ONLINE_COUNT} runner(s) available"
+
+      - name: Health check summary
+        if: always()
+        run: |
+          echo "## Cluster Health Check" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "All health checks **passed**. Proceeding to test execution." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Health checks **failed**. Test execution will be skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  run-gating-tests:
+    name: Run Gating Tests
+    needs: cluster-health-check
+    runs-on: hot-cluster
+    timeout-minutes: 120
+    env:
+      BRIDGE_KUBEADMIN_PASSWORD: ${{ secrets.HOT_CLUSTER_KUBEADMIN_PASS }}
+      BRIDGE_BASE_ADDRESS: ${{ needs.cluster-health-check.outputs.console_url }}
+      CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
+      CYPRESS_OS_IMAGES_NS: 'kubevirt-os-images'
+      CYPRESS_TEST_NS: 'ci-test-${{ github.run_id }}'
+      CYPRESS_TEST_SECRET_NAME: 'ci-test-secret'
+      NO_COLOR: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Setup test environment
+        run: bash test-setup.sh
+
+      - name: Run Cypress gating tests
+        run: |
+          npm run test-cypress-headless -- --spec="${{ inputs.test_spec }}"
+
+      - name: Generate test report
+        if: always()
+        run: npm run cypress-postreport || true
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-results-${{ github.run_id }}
+          path: |
+            cypress/gui-test-screenshots/
+            cypress/videos/
+            cypress/results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Collect cluster diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/cluster-diagnostics
+          oc cluster-info dump > /tmp/cluster-diagnostics/cluster_info.json 2>/dev/null || true
+          oc get pods -n kubevirt-hyperconverged -o wide > /tmp/cluster-diagnostics/hco_pods.txt 2>/dev/null || true
+          oc get nodes -o wide > /tmp/cluster-diagnostics/nodes.txt 2>/dev/null || true
+          oc get events -n "${CYPRESS_TEST_NS}" --sort-by='.lastTimestamp' > /tmp/cluster-diagnostics/test_ns_events.txt 2>/dev/null || true
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-diagnostics-${{ github.run_id }}
+          path: /tmp/cluster-diagnostics/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Cleanup test resources
+        if: always()
+        run: |
+          export TEST_NS="${CYPRESS_TEST_NS}"
+          bash test-cleanup.sh || echo "Cleanup encountered errors (non-fatal)"
+          oc delete namespace "${CYPRESS_TEST_NS}" --wait=false 2>/dev/null || true
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Gating Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Parameter | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Spec | \`${{ inputs.test_spec }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Namespace | \`${CYPRESS_TEST_NS}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | \`${{ job.status }}\` |" >> "$GITHUB_STEP_SUMMARY"
