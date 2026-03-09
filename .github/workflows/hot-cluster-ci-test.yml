@@ -1,0 +1,181 @@
+name: Hot Cluster CI Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_spec:
+        description: 'Cypress test spec to run'
+        required: true
+        default: 'tests/gating.cy.ts'
+        type: string
+      cluster_name:
+        description: 'Cluster name'
+        required: true
+        default: 'kubevirt-plugin-ci'
+        type: string
+      skip_arc_runner_check:
+        description: 'Skip GitHub runner registration check (use when running from a fork without its own ARC runners)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CLUSTER_NAME: ${{ inputs.cluster_name || 'kubevirt-plugin-ci' }}
+
+jobs:
+  cluster-health-check:
+    name: Cluster Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      console_url: ${{ steps.health.outputs.console_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup IBM Cloud CLI
+        uses: IBM/actions-ibmcloud-cli@v1
+        with:
+          api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
+          plugins: kubernetes-service
+
+      - name: Install oc client from cluster
+        run: |
+          INGRESS=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --json | jq -r '.ingressHostname')
+          curl -kLo oc.tar "https://downloads-openshift-console.${INGRESS}/amd64/linux/oc.tar"
+          tar -xvf oc.tar
+          sudo mv oc /usr/local/bin/
+          echo "oc version: $(oc version --client)"
+
+      - name: Configure kubeconfig
+        run: |
+          ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
+          oc cluster-info
+          oc get nodes -o wide
+
+      - name: Run health checks
+        id: health
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_ARC_GITHUB_CHECK: ${{ inputs.skip_arc_runner_check && 'true' || 'false' }}
+        run: |
+          bash ci-scripts/check-cluster-health.sh
+
+          CONSOLE_URL=$(oc get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}' 2>/dev/null || echo "")
+          echo "console_url=${CONSOLE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Health check summary
+        if: always()
+        run: |
+          echo "## Cluster Health Check" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "All health checks **passed**. Proceeding to test execution." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Health checks **failed**. Test execution will be skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  run-gating-tests:
+    name: Run Gating Tests
+    needs: cluster-health-check
+    runs-on: hot-cluster
+    timeout-minutes: 120
+    env:
+      BRIDGE_BASE_ADDRESS: ${{ needs.cluster-health-check.outputs.console_url }}
+      CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
+      CYPRESS_OS_IMAGES_NS: 'kubevirt-os-images'
+      CYPRESS_TEST_NS: 'ci-test-${{ github.run_id }}'
+      CYPRESS_TEST_SECRET_NAME: 'ci-test-secret'
+      NO_COLOR: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup IBM Cloud CLI
+        uses: IBM/actions-ibmcloud-cli@v1
+        with:
+          api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
+          plugins: kubernetes-service
+
+      - name: Configure kubeconfig
+        run: |
+          ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
+          kubectl cluster-info
+
+      - name: Install oc client from cluster
+        run: |
+          CONSOLE_URL=$(kubectl get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}')
+          curl -fsSLk "${CONSOLE_URL}/amd64/linux/oc.tar" | tar xf - -C /usr/local/bin
+          echo "oc version: $(oc version --client)"
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Setup test environment
+        run: bash test-setup.sh
+
+      - name: Run Cypress gating tests
+        run: |
+          npm run test-cypress-headless -- --spec="${{ inputs.test_spec }}"
+
+      - name: Generate test report
+        if: always()
+        run: npm run cypress-postreport || true
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-results-${{ github.run_id }}
+          path: |
+            cypress/gui-test-screenshots/
+            cypress/videos/
+            cypress/results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Collect cluster diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/cluster-diagnostics
+          oc cluster-info dump > /tmp/cluster-diagnostics/cluster_info.json 2>/dev/null || true
+          oc get pods -n kubevirt-hyperconverged -o wide > /tmp/cluster-diagnostics/hco_pods.txt 2>/dev/null || true
+          oc get nodes -o wide > /tmp/cluster-diagnostics/nodes.txt 2>/dev/null || true
+          oc get events -n "${CYPRESS_TEST_NS}" --sort-by='.lastTimestamp' > /tmp/cluster-diagnostics/test_ns_events.txt 2>/dev/null || true
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-diagnostics-${{ github.run_id }}
+          path: /tmp/cluster-diagnostics/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Cleanup test resources
+        if: always()
+        run: |
+          export TEST_NS="${CYPRESS_TEST_NS}"
+          bash test-cleanup.sh || echo "Cleanup encountered errors (non-fatal)"
+          oc delete namespace "${CYPRESS_TEST_NS}" --wait=false 2>/dev/null || true
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Gating Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Parameter | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Spec | \`${{ inputs.test_spec }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Namespace | \`${CYPRESS_TEST_NS}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | \`${{ job.status }}\` |" >> "$GITHUB_STEP_SUMMARY"
