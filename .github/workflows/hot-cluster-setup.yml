@@ -31,7 +31,7 @@ on:
       kvm_emulation:
         description: 'KVM emulation (true for vpc, false for bare metal)'
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -146,6 +146,7 @@ jobs:
             STATE=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --output json 2>/dev/null | jq -r '.state // "unknown"')
             echo "[$(date '+%H:%M:%S')] Cluster state: ${STATE} (${ELAPSED}s elapsed)"
 
+            # May need to also wait until "ingressStatus" is "healthy"
             if [[ "${STATE}" == "normal" ]]; then
               echo "Cluster is ready!"
               break
@@ -165,12 +166,18 @@ jobs:
             exit 1
           fi
 
+      - name: Install oc client from cluster
+        run: |
+          INGRESS=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --json | jq -r '.ingressHostname')
+          curl -kLo oc.tar.gz "https://downloads-openshift-console.${INGRESS}/amd64/linux/oc.tar.gz"
+          tar -xzvf oc.tar.gz
+          sudo mv oc /usr/local/bin/
+          echo "oc version: $(oc version --client)"
+
       - name: Configure kubeconfig
         run: |
           ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
-          echo "Cluster API server:"
           oc cluster-info
-          echo "Cluster nodes:"
           oc get nodes -o wide
 
       - name: Install ARC
