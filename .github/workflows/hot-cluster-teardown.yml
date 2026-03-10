@@ -18,6 +18,11 @@ on:
       IBM_CLOUD_API_KEY:
         required: true
 
+permissions:
+  contents: read
+  actions: write
+  secrets: write
+
 env:
   CLUSTER_NAME: ${{ inputs.cluster_name }}
 

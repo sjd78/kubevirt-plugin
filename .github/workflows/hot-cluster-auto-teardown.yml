@@ -16,6 +16,10 @@ on:
         default: '120'
         type: string
 
+permissions:
+  contents: read
+  actions: write
+
 env:
   CLUSTER_NAME: ${{ inputs.cluster_name || 'kubevirt-plugin-ci' }}
   IDLE_THRESHOLD_MINUTES: ${{ inputs.idle_threshold_minutes || '120' }}
