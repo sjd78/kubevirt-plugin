@@ -8,7 +8,7 @@ This directory contains scripts and documentation for the hot cluster CI infrast
 GitHub Actions (workflow_dispatch)
   │
   ├── hot-cluster-setup.yml      → Provisions cluster, installs ARC + HCO
-  ├── hot-cluster-teardown.yml   → Tears down cluster, cleans up runners + secrets
+  ├── hot-cluster-teardown.yml   → Tears down cluster, cleans up ghost runners
   ├── hot-cluster-auto-teardown.yml → Scheduled idle check (every 30min, 2h threshold)
   └── hot-cluster-ci-test.yml    → Health gate + gating tests on self-hosted runner
         │
@@ -35,13 +35,13 @@ The API key must belong to a user or service ID with the following IAM permissio
 - **VPC Infrastructure Services**: Editor role (if using VPC-based clusters)
 - **Classic Infrastructure**: Super User or equivalent (for bare metal provisioning)
 
-### Repository Administration
+### Ghost Runner Cleanup (optional)
 
 | Secret    | Description               | How to Obtain                               |
 | --------- | ------------------------- | ------------------------------------------- |
 | `BOT_PAT` | PAT with repo admin scope | GitHub Settings → Developer Settings → PATs |
 
-The `BOT_PAT` is required because `GITHUB_TOKEN` cannot manage repository secrets or delete self-hosted runners. These operations require repository admin access. The PAT needs the `repo` scope (classic) or **Administration: Read and Write** (fine-grained). It is used by the setup workflow to store kubeconfig/credentials as secrets, and by the teardown workflow to delete those secrets and clean up ghost runners.
+The `BOT_PAT` is only needed if you want the teardown workflow to automatically delete offline "ghost" runners from GitHub. Deleting self-hosted runners requires repository admin access which `GITHUB_TOKEN` cannot provide. The PAT needs the `repo` scope (classic) or **Administration: Read and Write** (fine-grained). If not set, ghost runners can be cleaned up manually via Settings → Actions → Runners.
 
 ### ARC Authentication (choose one)
 
@@ -64,14 +64,24 @@ The PAT requires these permissions on the target repository:
 - **Administration**: Read and Write
 - **Metadata**: Read-only
 
-### Auto-Generated Secrets
+## Cluster Authentication
 
-These secrets are created and managed by the setup/teardown workflows. Do not set them manually.
+All workflows that need cluster access use the IBM Cloud CLI to pull a kubeconfig on-demand:
 
-| Secret                       | Description        | Managed By                      |
-| ---------------------------- | ------------------ | ------------------------------- |
-| `HOT_CLUSTER_KUBECONFIG`     | Cluster kubeconfig | Setup creates, Teardown removes |
-| `HOT_CLUSTER_KUBEADMIN_PASS` | Kubeadmin password | Setup creates, Teardown removes |
+```yaml
+- name: Setup IBM Cloud CLI
+  uses: IBM/actions-ibmcloud-cli@v1
+  with:
+    api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
+    plugins: kubernetes-service
+
+- name: Configure kubeconfig
+  run: |
+    ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
+    oc cluster-info
+```
+
+This avoids storing kubeconfig or credentials as GitHub secrets. Any workflow or job that needs `oc`/`kubectl` access simply repeats these two steps with the shared `IBM_CLOUD_API_KEY`.
 
 ## Creating a GitHub App for ARC
 

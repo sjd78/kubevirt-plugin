@@ -18,6 +18,9 @@ permissions:
   contents: read
   actions: read
 
+env:
+  CLUSTER_NAME: ${{ inputs.cluster_name }}
+
 jobs:
   cluster-health-check:
     name: Cluster Health Check
@@ -29,31 +32,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      # - name: Setup IBM Cloud CLI
-      #   uses: IBM/actions-ibmcloud-cli@v1
-      #   with:
-      #     api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
-      #     plugins: kubernetes-service, container-registry
-
-      # - name: Configure kubeconfig
-      #   run: |
-      #     ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
-      #     echo "Cluster API server:"
-      #     oc cluster-info
-      #     echo ""
-      #     echo "Cluster nodes:"
-      #     oc get nodes -o wide
-
-      - name: Install oc CLI
-        run: |
-          curl -fsSL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz \
-            | tar xzf - -C /usr/local/bin oc kubectl
+      - name: Setup IBM Cloud CLI
+        uses: IBM/actions-ibmcloud-cli@v1
+        with:
+          api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
+          plugins: kubernetes-service
 
       - name: Configure kubeconfig
         run: |
-          mkdir -p "${HOME}/.kube"
-          echo "${{ secrets.HOT_CLUSTER_KUBECONFIG }}" > "${HOME}/.kube/config"
-          chmod 600 "${HOME}/.kube/config"
+          ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
+          echo "Cluster API server:"
+          oc cluster-info
+          echo "Cluster nodes:"
+          oc get nodes -o wide
 
       - name: Run health checks
         id: health
@@ -102,7 +93,6 @@ jobs:
     runs-on: hot-cluster
     timeout-minutes: 120
     env:
-      BRIDGE_KUBEADMIN_PASSWORD: ${{ secrets.HOT_CLUSTER_KUBEADMIN_PASS }}
       BRIDGE_BASE_ADDRESS: ${{ needs.cluster-health-check.outputs.console_url }}
       CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
       CYPRESS_OS_IMAGES_NS: 'kubevirt-os-images'
@@ -112,6 +102,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Setup IBM Cloud CLI
+        uses: IBM/actions-ibmcloud-cli@v1
+        with:
+          api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
+          plugins: kubernetes-service
+
+      - name: Configure kubeconfig
+        run: |
+          ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
+          oc cluster-info
 
       - name: Setup Node
         uses: actions/setup-node@v6

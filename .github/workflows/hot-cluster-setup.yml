@@ -151,29 +151,8 @@ jobs:
           ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
           echo "Cluster API server:"
           oc cluster-info
-          echo ""
           echo "Cluster nodes:"
           oc get nodes -o wide
-
-      - name: Store kubeconfig in GitHub secrets
-        env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
-        run: |
-          KUBECONFIG_CONTENT=$(cat "${HOME}/.kube/config")
-          echo "${KUBECONFIG_CONTENT}" | gh secret set HOT_CLUSTER_KUBECONFIG --repo "${{ github.repository }}"
-          echo "Kubeconfig stored in HOT_CLUSTER_KUBECONFIG secret"
-
-      - name: Store kubeadmin password
-        env:
-          GH_TOKEN: ${{ secrets.BOT_PAT }}
-        run: |
-          KUBEADMIN_PASS=$(ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin --output json 2>/dev/null | jq -r '.adminPassword // empty')
-          if [[ -n "${KUBEADMIN_PASS}" ]]; then
-            echo "${KUBEADMIN_PASS}" | gh secret set HOT_CLUSTER_KUBEADMIN_PASS --repo "${{ github.repository }}"
-            echo "Kubeadmin password stored"
-          else
-            echo "WARNING: Could not retrieve kubeadmin password (ROKS may use IAM instead)"
-          fi
 
       - name: Install ARC
         env:
