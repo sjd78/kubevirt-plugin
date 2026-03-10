@@ -33,7 +33,7 @@ permissions:
   contents: read
 
 env:
-  CLUSTER_NAME: ${{ inputs.cluster_name }}
+  CLUSTER_NAME: ${{ inputs.cluster_name || 'kubevirt-plugin-ci' }}
 
 jobs:
   provision-cluster:
