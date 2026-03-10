@@ -169,8 +169,8 @@ jobs:
       - name: Install oc client from cluster
         run: |
           INGRESS=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --json | jq -r '.ingressHostname')
-          curl -kLo oc.tar.gz "https://downloads-openshift-console.${INGRESS}/amd64/linux/oc.tar.gz"
-          tar -xzvf oc.tar.gz
+          curl -kLo oc.tar "https://downloads-openshift-console.${INGRESS}/amd64/linux/oc.tar"
+          tar -xvf oc.tar
           sudo mv oc /usr/local/bin/
           echo "oc version: $(oc version --client)"
 
