@@ -8,26 +8,20 @@ on:
         required: true
         default: 'kubevirt-plugin-ci'
         type: string
-      region:
-        description: 'IBM Cloud region'
+      zone:
+        description: 'IBM Cloud classic infrastructure zone (e.g., dal10, wdc04, fra02)'
         required: true
-        default: 'us-south'
-        type: choice
-        options:
-          - us-south
-          - us-east
-          - eu-gb
-          - eu-de
-          - jp-tok
+        default: 'wdc04'
+        type: string
       openshift_version:
         description: 'OpenShift version'
         required: true
-        default: '4.16_openshift'
+        default: '4.20_openshift'
         type: string
       worker_flavor:
         description: 'Worker node flavor (bare metal)'
         required: true
-        default: 'mb4c.32x384.3.8tb.ssd'
+        default: 'mb4c.20x64'
         type: string
       worker_count:
         description: 'Number of worker nodes'
@@ -51,7 +45,6 @@ jobs:
         uses: IBM/actions-ibmcloud-cli@v1
         with:
           api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
-          region: ${{ inputs.region }}
           plugins: kubernetes-service, container-registry
 
       - name: Check for existing cluster
@@ -65,16 +58,57 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verify zone and flavor
+        env:
+          ZONE: ${{ inputs.zone }}
+          FLAVOR: ${{ inputs.worker_flavor }}
+        run: |
+          echo "Fetching classic infrastructure locations and flavors..."
+          LOCATIONS_JSON=$(
+            ibmcloud oc locations --provider classic --show-flavors --output json |\
+            jq '[.[] | select(.kind=="dc")]'
+          )
+
+          echo "Checking zone '${ZONE}' exists..."
+          ZONE_EXISTS=$(
+            echo "${LOCATIONS_JSON}" |\
+            jq -r --arg z "${ZONE}" \
+              '[.[] | select(.id == $z)] | length'
+          )
+          if [[ "${ZONE_EXISTS}" -ne 1 ]]; then
+            echo "ERROR: Zone '${ZONE}' not found in classic infrastructure locations."
+            echo ""
+            echo "Available zones:"
+            echo "${LOCATIONS_JSON}" | jq -r '.[].id' | sort
+            exit 1
+          fi
+          echo "Zone '${ZONE}' exists"
+
+          echo "Checking flavor '${FLAVOR}' is available in zone '${ZONE}'..."
+          FLAVOR_EXISTS=$(
+            echo "${LOCATIONS_JSON}" |\
+            jq -r --arg z "${ZONE}" --arg f "${FLAVOR}" \
+              '.[] | select(.id == $z) | .flavors | split(",") | any(index($f))'
+          )
+          if [[ "${FLAVOR_EXISTS}" == "false" ]]; then
+            echo "ERROR: Flavor '${FLAVOR}' is not available in zone '${ZONE}'."
+            echo ""
+            echo "Available flavors in '${ZONE}':"
+            echo "${LOCATIONS_JSON}" | jq -r --arg z "${ZONE}" '.[] | select(.id == $z) | .flavors[]? | .id' | sort
+            exit 2
+          fi
+          echo "Flavor '${FLAVOR}' is available in zone '${ZONE}'"
+
       - name: Create ROKS cluster
         if: steps.check_cluster.outputs.exists == 'false'
         run: |
-          echo "Creating cluster '${CLUSTER_NAME}' with ${{ inputs.worker_count }}x ${{ inputs.worker_flavor }} workers..."
+          echo "Creating cluster '${CLUSTER_NAME}' with ${{ inputs.worker_count }}x ${{ inputs.worker_flavor }} workers in zone ${{ inputs.zone }}..."
           ibmcloud oc cluster create classic \
             --name "${CLUSTER_NAME}" \
             --version "${{ inputs.openshift_version }}" \
             --flavor "${{ inputs.worker_flavor }}" \
             --workers "${{ inputs.worker_count }}" \
-            --zone "${{ inputs.region }}-1" \
+            --zone "${{ inputs.zone }}" \
             --public-vlan "" \
             --private-vlan ""
 
@@ -168,7 +202,7 @@ jobs:
           echo "| Parameter | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
           echo "| Cluster | \`${CLUSTER_NAME}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Region | \`${{ inputs.region }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Zone | \`${{ inputs.zone }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| OpenShift | \`${{ inputs.openshift_version }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Worker Flavor | \`${{ inputs.worker_flavor }}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Workers | \`${{ inputs.worker_count }}\` |" >> "$GITHUB_STEP_SUMMARY"
