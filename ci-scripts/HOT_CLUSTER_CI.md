@@ -35,6 +35,14 @@ The API key must belong to a user or service ID with the following IAM permissio
 - **VPC Infrastructure Services**: Editor role (if using VPC-based clusters)
 - **Classic Infrastructure**: Super User or equivalent (for bare metal provisioning)
 
+### Repository Administration
+
+| Secret    | Description               | How to Obtain                               |
+| --------- | ------------------------- | ------------------------------------------- |
+| `BOT_PAT` | PAT with repo admin scope | GitHub Settings → Developer Settings → PATs |
+
+The `BOT_PAT` is required because `GITHUB_TOKEN` cannot manage repository secrets or delete self-hosted runners. These operations require repository admin access. The PAT needs the `repo` scope (classic) or **Administration: Read and Write** (fine-grained). It is used by the setup workflow to store kubeconfig/credentials as secrets, and by the teardown workflow to delete those secrets and clean up ghost runners.
+
 ### ARC Authentication (choose one)
 
 #### Option A: GitHub App (recommended for production)

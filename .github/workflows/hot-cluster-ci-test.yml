@@ -29,6 +29,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # - name: Setup IBM Cloud CLI
+      #   uses: IBM/actions-ibmcloud-cli@v1
+      #   with:
+      #     api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
+      #     plugins: kubernetes-service, container-registry
+
+      # - name: Configure kubeconfig
+      #   run: |
+      #     ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
+      #     echo "Cluster API server:"
+      #     oc cluster-info
+      #     echo ""
+      #     echo "Cluster nodes:"
+      #     oc get nodes -o wide
+
       - name: Install oc CLI
         run: |
           curl -fsSL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz \

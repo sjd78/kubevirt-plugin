@@ -20,8 +20,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
-  secrets: write
 
 env:
   CLUSTER_NAME: ${{ inputs.cluster_name }}
@@ -90,7 +88,7 @@ jobs:
       - name: Clean up ghost runners
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
         run: |
           echo "Checking for offline self-hosted runners..."
           RUNNERS=$(gh api "/repos/${{ github.repository }}/actions/runners" --jq '.runners[] | select(.status == "offline") | select(.labels[].name == "hot-cluster") | .id' 2>/dev/null || true)
@@ -108,7 +106,7 @@ jobs:
       - name: Clean up secrets
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
         run: |
           echo "Removing HOT_CLUSTER_KUBECONFIG secret..."
           gh secret delete HOT_CLUSTER_KUBECONFIG --repo "${{ github.repository }}" 2>/dev/null || echo "Secret not found or already removed"
