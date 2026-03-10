@@ -134,37 +134,9 @@ jobs:
             --private-vlan "${PRIVATE_VLAN}" \
             --public-vlan "${PUBLIC_VLAN}"
 
-      - name: Wait for cluster to be ready
+      - name: Wait for cluster to be ready to use
         run: |
-          echo "Waiting for cluster '${CLUSTER_NAME}' to reach 'normal' state..."
-          echo "This may take 30-90 minutes for bare metal nodes."
-          MAX_WAIT=7200  # 2 hours
-          INTERVAL=60
-          ELAPSED=0
-
-          while [[ ${ELAPSED} -lt ${MAX_WAIT} ]]; do
-            STATE=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --output json 2>/dev/null | jq -r '.state // "unknown"')
-            echo "[$(date '+%H:%M:%S')] Cluster state: ${STATE} (${ELAPSED}s elapsed)"
-
-            # May need to also wait until "ingressStatus" is "healthy"
-            if [[ "${STATE}" == "normal" ]]; then
-              echo "Cluster is ready!"
-              break
-            fi
-
-            if [[ "${STATE}" == "critical" || "${STATE}" == "delete_failed" ]]; then
-              echo "ERROR: Cluster entered '${STATE}' state"
-              exit 1
-            fi
-
-            sleep ${INTERVAL}
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-
-          if [[ ${ELAPSED} -ge ${MAX_WAIT} ]]; then
-            echo "ERROR: Cluster did not reach 'normal' state within ${MAX_WAIT}s"
-            exit 1
-          fi
+          bash ci-scripts/check-cluster-state.sh
 
       - name: Install oc client from cluster
         run: |
