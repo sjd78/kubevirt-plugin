@@ -38,12 +38,18 @@ jobs:
           api_key: ${{ secrets.IBM_CLOUD_API_KEY }}
           plugins: kubernetes-service
 
+      - name: Install oc client from cluster
+        run: |
+          INGRESS=$(ibmcloud oc cluster get --cluster "${CLUSTER_NAME}" --json | jq -r '.ingressHostname')
+          curl -kLo oc.tar.gz "https://downloads-openshift-console.${INGRESS}/amd64/linux/oc.tar.gz"
+          tar -xzvf oc.tar.gz
+          sudo mv oc /usr/local/bin/
+          echo "oc version: $(oc version --client)"
+
       - name: Configure kubeconfig
         run: |
           ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
-          echo "Cluster API server:"
           oc cluster-info
-          echo "Cluster nodes:"
           oc get nodes -o wide
 
       - name: Run health checks
@@ -112,7 +118,13 @@ jobs:
       - name: Configure kubeconfig
         run: |
           ibmcloud oc cluster config --cluster "${CLUSTER_NAME}" --admin
-          oc cluster-info
+          kubectl cluster-info
+
+      - name: Install oc client from cluster
+        run: |
+          CONSOLE_URL=$(kubectl get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}')
+          curl -fsSLk "${CONSOLE_URL}/amd64/linux/oc.tar" | tar xf - -C /usr/local/bin
+          echo "oc version: $(oc version --client)"
 
       - name: Setup Node
         uses: actions/setup-node@v6

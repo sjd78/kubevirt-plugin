@@ -24,9 +24,9 @@ on:
         default: 'm3c.8x64'
         type: string
       worker_count:
-        description: 'Number of worker nodes'
+        description: 'Number of worker nodes (at least 2 so ingress is happy)'
         required: true
-        default: '1'
+        default: '2'
         type: string
       kvm_emulation:
         description: 'KVM emulation (true for vpc, false for bare metal)'
