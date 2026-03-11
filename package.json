@@ -130,7 +130,7 @@
   },
   "engines": {
     "npm": ">=10.9.0",
-    "node": ">=22.0.0"
+    "node": "^22"
   },
   "lint-staged": {
     "src/**/*.{js,ts,tsx,jsx,json}": [
