@@ -35,11 +35,11 @@ jobs:
         run: |
           env | sort
 
-          kubectl cluster-info
-          kubectl get nodes -o wide
+          kubectl cluster-info || echo "kubectl cluster-info failed"
+          kubectl get nodes -o wide || echo "kubectl get nodes -o wide failed"
 
-          oc cluster-info
-          oc get nodes -o wide
+          oc cluster-info || echo "oc cluster-info failed"
+          oc get nodes -o wide || echo "oc get nodes -o wide failed"
 
       - name: Setup Node
         uses: actions/setup-node@v6
