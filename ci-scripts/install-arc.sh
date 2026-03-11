@@ -5,16 +5,16 @@
 # runners with the GitHub repository.
 #
 # Required environment variables:
-#   GITHUB_CONFIG_URL      - Repository or org URL (e.g., https://github.com/org/repo)
+#   ARC_CONFIG_URL         - Repository or org URL (e.g., https://github.com/org/repo)
 #
 # Authentication (one of the following sets):
 #   Option A - GitHub App (recommended):
-#     GITHUB_APP_ID            - GitHub App ID
-#     GITHUB_APP_INSTALL_ID    - GitHub App installation ID
-#     GITHUB_APP_PRIVATE_KEY   - GitHub App private key (PEM content)
+#     ARC_APP_ID             - GitHub App ID
+#     ARC_APP_INSTALL_ID     - GitHub App installation ID
+#     ARC_APP_PRIVATE_KEY    - GitHub App private key (PEM content)
 #
 #   Option B - Personal Access Token:
-#     GITHUB_PAT               - Fine-grained PAT with administration:write
+#     ARC_PAT                - Fine-grained PAT with administration:write
 #
 # Optional environment variables:
 #   RUNNER_SCALE_SET_NAME  - Name for the runner scale set (default: "hot-cluster")
@@ -26,7 +26,7 @@
 
 set -euo pipefail
 
-GITHUB_CONFIG_URL="${GITHUB_CONFIG_URL:?GITHUB_CONFIG_URL is required}"
+ARC_CONFIG_URL="${ARC_CONFIG_URL:?ARC_CONFIG_URL is required}"
 RUNNER_SCALE_SET_NAME="${RUNNER_SCALE_SET_NAME:-hot-cluster}"
 MIN_RUNNERS="${MIN_RUNNERS:-0}"
 MAX_RUNNERS="${MAX_RUNNERS:-5}"
@@ -37,7 +37,7 @@ ARC_VERSION="${ARC_VERSION:-}"
 ARC_HELM_REPO="oci://ghcr.io/actions/actions-runner-controller-charts"
 
 echo "=== ARC Installation ==="
-echo "  GITHUB_CONFIG_URL:     ${GITHUB_CONFIG_URL}"
+echo "  ARC_CONFIG_URL:        ${ARC_CONFIG_URL}"
 echo "  RUNNER_SCALE_SET_NAME: ${RUNNER_SCALE_SET_NAME}"
 echo "  MIN_RUNNERS:           ${MIN_RUNNERS}"
 echo "  MAX_RUNNERS:           ${MAX_RUNNERS}"
@@ -74,21 +74,20 @@ echo "ARC controller installed successfully"
 
 # --- Build authentication args ---
 AUTH_ARGS=""
-if [[ -n "${GITHUB_APP_ID:-}" && -n "${GITHUB_APP_INSTALL_ID:-}" && -n "${GITHUB_APP_PRIVATE_KEY:-}" ]]; then
+if [[ -n "${ARC_APP_ID:-}" && -n "${ARC_APP_INSTALL_ID:-}" && -n "${ARC_APP_PRIVATE_KEY:-}" ]]; then
   echo "Using GitHub App authentication"
-  AUTH_ARGS="--set githubConfigSecret.github_app_id=${GITHUB_APP_ID}"
-  AUTH_ARGS="${AUTH_ARGS} --set githubConfigSecret.github_app_installation_id=${GITHUB_APP_INSTALL_ID}"
+  AUTH_ARGS="--set githubConfigSecret.github_app_id=${ARC_APP_ID}"
+  AUTH_ARGS="${AUTH_ARGS} --set githubConfigSecret.github_app_installation_id=${ARC_APP_INSTALL_ID}"
 
-  # Write the private key to a temp file for Helm to consume
   TEMP_KEY_FILE=$(mktemp)
-  echo "${GITHUB_APP_PRIVATE_KEY}" > "${TEMP_KEY_FILE}"
+  echo "${ARC_APP_PRIVATE_KEY}" > "${TEMP_KEY_FILE}"
   AUTH_ARGS="${AUTH_ARGS} --set-file githubConfigSecret.github_app_private_key=${TEMP_KEY_FILE}"
-elif [[ -n "${GITHUB_PAT:-}" ]]; then
+elif [[ -n "${ARC_PAT:-}" ]]; then
   echo "Using Personal Access Token authentication"
-  AUTH_ARGS="--set githubConfigSecret.github_token=${GITHUB_PAT}"
+  AUTH_ARGS="--set githubConfigSecret.github_token=${ARC_PAT}"
 else
   echo "ERROR: No authentication configured."
-  echo "Set GITHUB_APP_ID + GITHUB_APP_INSTALL_ID + GITHUB_APP_PRIVATE_KEY, or GITHUB_PAT"
+  echo "Set ARC_APP_ID + ARC_APP_INSTALL_ID + ARC_APP_PRIVATE_KEY, or ARC_PAT"
   exit 1
 fi
 
@@ -97,14 +96,13 @@ echo "Installing ARC runner scale set '${RUNNER_SCALE_SET_NAME}'..."
 helm install "${RUNNER_SCALE_SET_NAME}" \
   ${VERSION_FLAG} \
   --namespace "${ARC_RUNNERS_NS}" \
-  --set githubConfigUrl="${GITHUB_CONFIG_URL}" \
+  --set githubConfigUrl="${ARC_CONFIG_URL}" \
   --set minRunners="${MIN_RUNNERS}" \
   --set maxRunners="${MAX_RUNNERS}" \
   ${AUTH_ARGS} \
   "${ARC_HELM_REPO}/gha-runner-scale-set" \
   --wait
 
-# Clean up temp key file
 if [[ -n "${TEMP_KEY_FILE:-}" && -f "${TEMP_KEY_FILE:-}" ]]; then
   rm -f "${TEMP_KEY_FILE}"
 fi

@@ -154,11 +154,11 @@ jobs:
 
       - name: Install ARC
         env:
-          GITHUB_CONFIG_URL: 'https://github.com/${{ github.repository }}'
-          GITHUB_APP_ID: ${{ secrets.ARC_GITHUB_APP_ID }}
-          GITHUB_APP_INSTALL_ID: ${{ secrets.ARC_GITHUB_APP_INSTALL_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.ARC_GITHUB_APP_PRIVATE_KEY }}
-          GITHUB_PAT: ${{ secrets.ARC_GITHUB_PAT }}
+          ARC_CONFIG_URL: 'https://github.com/${{ github.repository }}'
+          ARC_APP_ID: ${{ secrets.ARC_GITHUB_APP_ID }}
+          ARC_APP_INSTALL_ID: ${{ secrets.ARC_GITHUB_APP_INSTALL_ID }}
+          ARC_APP_PRIVATE_KEY: ${{ secrets.ARC_GITHUB_APP_PRIVATE_KEY }}
+          ARC_PAT: ${{ secrets.ARC_GITHUB_PAT }}
         run: |
           bash ci-scripts/install-arc.sh
 
