@@ -36,6 +36,8 @@ jobs:
       # ARC runner pod runs on the cluster; use in-cluster config. Install to user dir (no sudo in container).
       - name: Connect to cluster and install kubectl
         run: |
+          env
+
           BIN_DIR="${HOME}/bin"
           mkdir -p "${BIN_DIR}"
           echo "${BIN_DIR}" >> "$GITHUB_PATH"
