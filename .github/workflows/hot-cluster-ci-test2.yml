@@ -34,12 +34,13 @@ jobs:
       - name: Check kubectl and oc
         run: |
           env | sort
+          df -h
 
-          kubectl cluster-info || echo "kubectl cluster-info failed"
-          kubectl get nodes -o wide || echo "kubectl get nodes -o wide failed"
+          # kubectl cluster-info || echo "kubectl cluster-info failed"
+          # kubectl get nodes -o wide || echo "kubectl get nodes -o wide failed"
 
-          oc cluster-info || echo "oc cluster-info failed"
-          oc get nodes -o wide || echo "oc get nodes -o wide failed"
+          # oc cluster-info || echo "oc cluster-info failed"
+          # oc get nodes -o wide || echo "oc get nodes -o wide failed"
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -51,7 +52,7 @@ jobs:
         run: |
           node -v
           npm -v
-          npm ci --ignore-scripts
+          npm clean-install --verbose --ignore-scripts --no-audit
 
       - name: Setup test environment
         run: bash test-setup.sh
