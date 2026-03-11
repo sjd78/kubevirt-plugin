@@ -1,0 +1,119 @@
+name: Hot Cluster CI Test 2
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_spec:
+        description: 'Cypress test spec to run'
+        required: true
+        default: 'tests/gating.cy.ts'
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  run-gating-tests:
+    name: Run Gating Tests
+    runs-on: hot-cluster
+    timeout-minutes: 120
+    env:
+      CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
+      CYPRESS_OS_IMAGES_NS: 'kubevirt-os-images'
+      CYPRESS_TEST_NS: 'ci-test-${{ github.run_id }}'
+      CYPRESS_TEST_SECRET_NAME: 'ci-test-secret'
+      NO_COLOR: '1'
+    steps:
+      # ARC runner pod runs on the cluster; use in-cluster config (no kubeconfig file needed).
+      - name: Connect to cluster and install kubectl
+        run: |
+          curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o kubectl
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl cluster-info
+          kubectl get nodes -o wide
+
+      - name: Get console URL and install oc client
+        run: |
+          CONSOLE_URL=$(kubectl get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}')
+          echo "BRIDGE_BASE_ADDRESS=${CONSOLE_URL}" >> "$GITHUB_ENV"
+          echo "Console URL: ${CONSOLE_URL}"
+          # OpenShift console serves oc at /amd64/linux/oc.tar; extract to temp dir to handle any tar layout
+          TMP_OC=$(mktemp -d)
+          curl -fsSLk "${CONSOLE_URL}/amd64/linux/oc.tar" -o "${TMP_OC}/oc.tar"
+          tar -xf "${TMP_OC}/oc.tar" -C "${TMP_OC}"
+          OC_BIN=$(find "${TMP_OC}" -name oc -type f | head -1)
+          sudo mv "${OC_BIN}" /usr/local/bin/oc
+          rm -rf "${TMP_OC}"
+          echo "oc version: $(oc version --client)"
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Setup test environment
+        run: bash test-setup.sh
+
+      - name: Run Cypress gating tests
+        run: |
+          npm run test-cypress-headless -- --spec="${{ inputs.test_spec }}"
+
+      - name: Generate test report
+        if: always()
+        run: npm run cypress-postreport || true
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-results-${{ github.run_id }}
+          path: |
+            cypress/gui-test-screenshots/
+            cypress/videos/
+            cypress/results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Collect cluster diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/cluster-diagnostics
+          oc cluster-info dump > /tmp/cluster-diagnostics/cluster_info.json 2>/dev/null || true
+          oc get pods -n kubevirt-hyperconverged -o wide > /tmp/cluster-diagnostics/hco_pods.txt 2>/dev/null || true
+          oc get nodes -o wide > /tmp/cluster-diagnostics/nodes.txt 2>/dev/null || true
+          oc get events -n "${CYPRESS_TEST_NS}" --sort-by='.lastTimestamp' > /tmp/cluster-diagnostics/test_ns_events.txt 2>/dev/null || true
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-diagnostics-${{ github.run_id }}
+          path: /tmp/cluster-diagnostics/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Cleanup test resources
+        if: always()
+        run: |
+          export TEST_NS="${CYPRESS_TEST_NS}"
+          bash test-cleanup.sh || echo "Cleanup encountered errors (non-fatal)"
+          oc delete namespace "${CYPRESS_TEST_NS}" --wait=false 2>/dev/null || true
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Gating Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Parameter | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Spec | \`${{ inputs.test_spec }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Namespace | \`${CYPRESS_TEST_NS}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | \`${{ job.status }}\` |" >> "$GITHUB_STEP_SUMMARY"
