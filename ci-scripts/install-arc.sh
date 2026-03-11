@@ -64,7 +64,7 @@ oc create namespace "${ARC_RUNNERS_NS}" --dry-run=client -o yaml | oc apply -f -
 
 # --- Install ARC controller ---
 echo "Installing ARC controller..."
-helm install arc \
+helm upgrade --install arc \
   ${VERSION_FLAG} \
   --namespace "${ARC_CONTROLLER_NS}" \
   "${ARC_HELM_REPO}/gha-runner-scale-set-controller" \
@@ -93,7 +93,7 @@ fi
 
 # --- Install runner scale set ---
 echo "Installing ARC runner scale set '${RUNNER_SCALE_SET_NAME}'..."
-helm install "${RUNNER_SCALE_SET_NAME}" \
+helm upgrade --install "${RUNNER_SCALE_SET_NAME}" \
   ${VERSION_FLAG} \
   --namespace "${ARC_RUNNERS_NS}" \
   --set githubConfigUrl="${ARC_CONFIG_URL}" \
