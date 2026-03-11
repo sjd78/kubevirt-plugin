@@ -13,6 +13,11 @@ on:
         required: true
         default: 'kubevirt-plugin-ci'
         type: string
+      skip_arc_runner_check:
+        description: 'Skip GitHub runner registration check (use when running from a fork without its own ARC runners)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -57,6 +62,7 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_ARC_GITHUB_CHECK: ${{ inputs.skip_arc_runner_check && 'true' || 'false' }}
         run: |
           bash ci-scripts/check-cluster-health.sh
 
@@ -64,22 +70,28 @@ jobs:
           echo "console_url=${CONSOLE_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Verify runners registered
+        if: inputs.skip_arc_runner_check != true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Checking for registered self-hosted runners..."
+          echo "Checking for runners (scale set or legacy)..."
+          # Runner scale sets (ARC) do not appear in the legacy /actions/runners API.
+          # If we have ARC pods in the cluster, the scale set is present and jobs can use runs-on: hot-cluster.
+          ARC_POD_COUNT=$(oc get pods -n arc-runners --no-headers 2>/dev/null | wc -l)
+          if [[ "${ARC_POD_COUNT}" -ge 1 ]]; then
+            echo "ARC runner scale set present (${ARC_POD_COUNT} pod(s) in arc-runners); no need to check legacy API."
+            echo "Runner check passed (scale set)."
+            exit 0
+          fi
+          # No ARC pods: fall back to legacy self-hosted runners API.
           ONLINE_COUNT=$(gh api "/repos/${{ github.repository }}/actions/runners" \
             --jq '[.runners[] | select(.status == "online") | select(.labels[].name == "hot-cluster")] | length' 2>/dev/null || echo "0")
-
-          echo "Online 'hot-cluster' runners: ${ONLINE_COUNT}"
-
+          echo "Online 'hot-cluster' runners (legacy API): ${ONLINE_COUNT}"
           if [[ "${ONLINE_COUNT}" -lt 1 ]]; then
-            echo "ERROR: No online runners with label 'hot-cluster' found."
-            echo "The self-hosted runner job would queue indefinitely."
-            echo "Ensure ARC is installed and runners are registered."
+            echo "::error::No runners found: no ARC pods in arc-runners and no online legacy runners with label 'hot-cluster'."
+            echo "The 'Run Gating Tests' job uses \`runs-on: hot-cluster\`. Ensure ARC is installed and the scale set is registered, or run with 'Skip ARC runner check' if appropriate."
             exit 1
           fi
-
           echo "Runner check passed: ${ONLINE_COUNT} runner(s) available"
 
       - name: Health check summary

@@ -7,8 +7,11 @@
 #
 # Optional environment variables:
 #   ARC_RUNNERS_NS         - Namespace for ARC runners (default: "arc-runners")
-#   GITHUB_REPOSITORY      - owner/repo for GitHub API runner check
+#   GITHUB_REPOSITORY      - owner/repo for GitHub API runner check (legacy runners only)
 #   SKIP_ARC_GITHUB_CHECK  - Set to "true" to skip the GitHub API runner registration check
+#
+# Note: Runner scale sets (ARC) do not appear in GET /repos/.../actions/runners. When ARC
+# runner pods exist in ARC_RUNNERS_NS, the script skips the GitHub API check.
 
 set -uo pipefail
 
@@ -79,20 +82,33 @@ check "ARC runner pods in ${ARC_RUNNERS_NS}" bash -c "
   fi
 "
 
-# --- ARC runners registered in GitHub ---
-if [[ "${SKIP_ARC_GITHUB_CHECK}" != "true" && -n "${GITHUB_REPOSITORY:-}" ]]; then
-  check "ARC runners registered in GitHub" bash -c '
+# --- ARC runners registered in GitHub (legacy API only; scale sets not listed) ---
+# Runner scale sets (ARC) do not appear in GET /repos/.../actions/runners; only legacy
+# self-hosted runners do. If we have ARC pods in the cluster, we rely on that as the
+# source of truth and skip the API check to avoid false failures.
+HAS_ARC_PODS=0
+if oc get namespace "${ARC_RUNNERS_NS}" &>/dev/null; then
+  pod_count=$(oc get pods -n "${ARC_RUNNERS_NS}" --no-headers 2>/dev/null | wc -l)
+  [[ "${pod_count}" -ge 1 ]] && HAS_ARC_PODS=1
+fi
+
+if [[ "${HAS_ARC_PODS}" -eq 1 ]]; then
+  echo "ARC runner pods present (runner scale set); skipping GitHub runners API check (scale sets not in legacy API)"
+elif [[ "${SKIP_ARC_GITHUB_CHECK}" == "true" ]]; then
+  echo "Skipping GitHub runner registration check (SKIP_ARC_GITHUB_CHECK=true)"
+elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+  check "ARC runners registered in GitHub (legacy)" bash -c '
     runner_count=$(gh api "/repos/'"${GITHUB_REPOSITORY}"'/actions/runners" --jq ".total_count" 2>/dev/null || echo "0")
     if [[ "${runner_count}" -ge 1 ]]; then
       echo "  ${runner_count} runner(s) registered"
       exit 0
     else
-      echo "  No runners registered in GitHub"
+      echo "  No legacy runners for '"${GITHUB_REPOSITORY}"' (runner scale sets do not appear in this API)"
       exit 1
     fi
   '
 else
-  echo "Skipping GitHub runner registration check"
+  echo "Skipping GitHub runner registration check (no GITHUB_REPOSITORY)"
 fi
 
 # --- Default StorageClass ---

@@ -4,6 +4,11 @@
 # Deploys the controller and a runner scale set that registers as self-hosted
 # runners with the GitHub repository.
 #
+# This script uses the official GitHub ARC (runner scale sets), not the older
+# summerwind/actions-runner-controller. The scale set chart both defines the
+# "runner deployment" and handles scaling (min/max); no separate RunnerDeployment
+# or HorizontalRunnerAutoscaler YAML is needed.
+#
 # Required environment variables:
 #   ARC_CONFIG_URL         - Repository or org URL (e.g., https://github.com/org/repo)
 #
@@ -23,8 +28,10 @@
 #   ARC_CONTROLLER_NS      - Namespace for the ARC controller (default: "arc-systems")
 #   ARC_RUNNERS_NS         - Namespace for the runners (default: "arc-runners")
 #   ARC_VERSION            - Helm chart version (default: latest)
+#   CONTAINER_MODE         - Set to "dind" to enable Docker-in-Docker for container jobs (default: unset)
+#   ARC_RUNNER_VALUES_FILE - Path to a YAML file to merge for gha-runner-scale-set (template, custom image, etc.)
 
-set -euo pipefail
+set -euox pipefail
 
 ARC_CONFIG_URL="${ARC_CONFIG_URL:?ARC_CONFIG_URL is required}"
 RUNNER_SCALE_SET_NAME="${RUNNER_SCALE_SET_NAME:-hot-cluster}"
@@ -92,14 +99,24 @@ else
 fi
 
 # --- Install runner scale set ---
+# Optional: enable Docker-in-Docker for workflows that use container jobs or container actions.
+# Optional: custom runner image, resources, or other template overrides via ARC_RUNNER_VALUES_FILE
+# (see https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller/deploying-runner-scale-sets-with-actions-runner-controller)
+RUNNER_SET_ARGS="--set githubConfigUrl=\"${ARC_CONFIG_URL}\" --set minRunners=${MIN_RUNNERS} --set maxRunners=${MAX_RUNNERS} ${AUTH_ARGS}"
+if [[ -n "${CONTAINER_MODE:-}" ]]; then
+  echo "Enabling container mode: ${CONTAINER_MODE}"
+  RUNNER_SET_ARGS="${RUNNER_SET_ARGS} --set containerMode.type=${CONTAINER_MODE}"
+fi
+if [[ -n "${ARC_RUNNER_VALUES_FILE:-}" && -f "${ARC_RUNNER_VALUES_FILE}" ]]; then
+  echo "Using runner values file: ${ARC_RUNNER_VALUES_FILE}"
+  RUNNER_SET_ARGS="${RUNNER_SET_ARGS} --values ${ARC_RUNNER_VALUES_FILE}"
+fi
+
 echo "Installing ARC runner scale set '${RUNNER_SCALE_SET_NAME}'..."
 helm upgrade --install "${RUNNER_SCALE_SET_NAME}" \
   ${VERSION_FLAG} \
   --namespace "${ARC_RUNNERS_NS}" \
-  --set githubConfigUrl="${ARC_CONFIG_URL}" \
-  --set minRunners="${MIN_RUNNERS}" \
-  --set maxRunners="${MAX_RUNNERS}" \
-  ${AUTH_ARGS} \
+  ${RUNNER_SET_ARGS} \
   "${ARC_HELM_REPO}/gha-runner-scale-set" \
   --wait
 
@@ -111,3 +128,9 @@ echo ""
 echo "=== ARC Installation Complete ==="
 echo "Runner scale set '${RUNNER_SCALE_SET_NAME}' is registered."
 echo "Use 'runs-on: ${RUNNER_SCALE_SET_NAME}' in workflow files to target these runners."
+echo ""
+echo "Optional: To use a custom runner image (e.g. with podman or extra tools), set"
+echo "  ARC_RUNNER_VALUES_FILE to a YAML file that overrides template.spec.containers."
+echo ""
+echo "Optional: For workflows that use container jobs or Docker actions, set"
+echo "  CONTAINER_MODE=dind before re-running this script (or add to your values file)."
