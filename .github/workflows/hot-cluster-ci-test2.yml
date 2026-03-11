@@ -31,40 +31,24 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
-
-      # ARC runner pod runs on the cluster; use in-cluster config. Install to user dir (no sudo in container).
-      - name: Connect to cluster and install kubectl
-        run: |
-          env
-
-          BIN_DIR="${HOME}/bin"
-          mkdir -p "${BIN_DIR}"
-          echo "${BIN_DIR}" >> "$GITHUB_PATH"
-          echo "PATH=${BIN_DIR}:${PATH}" >> "$GITHUB_ENV"
-          curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o "${BIN_DIR}/kubectl"
-          chmod +x "${BIN_DIR}/kubectl"
-          export PATH="${BIN_DIR}:${PATH}"
-          kubectl cluster-info
-          kubectl get nodes -o wide
-
-      - name: Get console URL and install oc client
-        run: |
-          CONSOLE_URL=$(kubectl get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}')
-          echo "BRIDGE_BASE_ADDRESS=${CONSOLE_URL}" >> "$GITHUB_ENV"
-          echo "Console URL: ${CONSOLE_URL}"
-          BIN_DIR="${HOME}/bin"
-          TMP_OC=$(mktemp -d)
-          curl -fsSLk "${CONSOLE_URL}/amd64/linux/oc.tar" -o "${TMP_OC}/oc.tar"
-          tar -xf "${TMP_OC}/oc.tar" -C "${TMP_OC}"
-          OC_BIN=$(find "${TMP_OC}" -name oc -type f | head -1)
-          mv "${OC_BIN}" "${BIN_DIR}/oc"
-          chmod +x "${BIN_DIR}/oc"
-          rm -rf "${TMP_OC}"
-          echo "oc version: $(oc version --client)"
+          node-version-file: 'package.json'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
+
+      - uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          oc: '4.20'
+      - name: Check kubectl and oc
+        run: |
+          env | sort
+
+          kubectl cluster-info
+          kubectl get nodes -o wide
+
+          oc cluster-info
+          oc get nodes -o wide
 
       - name: Setup test environment
         run: bash test-setup.sh
