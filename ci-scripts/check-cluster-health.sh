@@ -24,9 +24,9 @@ check() {
   shift
   echo -n "Checking ${name}... "
   if "$@"; then
-    echo "OK"
+    echo "✅ OK"
   else
-    echo "FAILED"
+    echo "❌ FAILED"
     FAILURES=$((FAILURES + 1))
   fi
 }
@@ -82,33 +82,38 @@ check "ARC runner pods in ${ARC_RUNNERS_NS}" bash -c "
   fi
 "
 
-# --- ARC runners registered in GitHub (legacy API only; scale sets not listed) ---
-# Runner scale sets (ARC) do not appear in GET /repos/.../actions/runners; only legacy
-# self-hosted runners do. If we have ARC pods in the cluster, we rely on that as the
-# source of truth and skip the API check to avoid false failures.
+# --- Verify runners registered (scale set or legacy) ---
+# Runner scale sets (ARC) do not appear in GET /repos/.../actions/runners. If we have
+# ARC pods in the cluster, we treat that as "runners available". Otherwise we check the
+# legacy API for online runners with label "hot-cluster".
 HAS_ARC_PODS=0
 if oc get namespace "${ARC_RUNNERS_NS}" &>/dev/null; then
   pod_count=$(oc get pods -n "${ARC_RUNNERS_NS}" --no-headers 2>/dev/null | wc -l)
   [[ "${pod_count}" -ge 1 ]] && HAS_ARC_PODS=1
 fi
 
-if [[ "${HAS_ARC_PODS}" -eq 1 ]]; then
-  echo "ARC runner pods present (runner scale set); skipping GitHub runners API check (scale sets not in legacy API)"
-elif [[ "${SKIP_ARC_GITHUB_CHECK}" == "true" ]]; then
-  echo "Skipping GitHub runner registration check (SKIP_ARC_GITHUB_CHECK=true)"
+if [[ "${SKIP_ARC_GITHUB_CHECK}" == "true" ]]; then
+  echo "Skipping runner registration check (SKIP_ARC_GITHUB_CHECK=true)"
+elif [[ "${HAS_ARC_PODS}" -eq 1 ]]; then
+  echo "Checking for runners (scale set or legacy)... ARC runner scale set present; no need to check legacy API."
+  echo "Runner check passed (scale set)."
 elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
-  check "ARC runners registered in GitHub (legacy)" bash -c '
-    runner_count=$(gh api "/repos/'"${GITHUB_REPOSITORY}"'/actions/runners" --jq ".total_count" 2>/dev/null || echo "0")
-    if [[ "${runner_count}" -ge 1 ]]; then
-      echo "  ${runner_count} runner(s) registered"
+  check "runners registered (scale set or legacy)" bash -c '
+    echo "Checking for runners (scale set or legacy)..."
+    # No ARC pods: fall back to legacy self-hosted runners API (online + hot-cluster label).
+    online_count=$(gh api "/repos/'"${GITHUB_REPOSITORY}"'/actions/runners" \
+      --jq "[.runners[] | select(.status == \"online\") | select(.labels[].name == \"hot-cluster\")] | length" 2>/dev/null || echo "0")
+    if [[ "${online_count}" -ge 1 ]]; then
+      echo "  ${online_count} online runner(s) with label hot-cluster"
       exit 0
     else
-      echo "  No legacy runners for '"${GITHUB_REPOSITORY}"' (runner scale sets do not appear in this API)"
+      echo "::error::No runners found: no ARC pods in '"${ARC_RUNNERS_NS}"' and no online legacy runners with label hot-cluster."
+      echo "  The Run Gating Tests job uses runs-on: hot-cluster. Ensure ARC is installed and the scale set is registered."
       exit 1
     fi
   '
 else
-  echo "Skipping GitHub runner registration check (no GITHUB_REPOSITORY)"
+  echo "Skipping runner registration check (no GITHUB_REPOSITORY)"
 fi
 
 # --- Default StorageClass ---

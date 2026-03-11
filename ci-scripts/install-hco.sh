@@ -26,31 +26,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 echo "=== HCO Installation ==="
-echo "  KVM_EMULATION:          ${KVM_EMULATION}"
-echo "  HCO_IMAGE_VER:          ${HCO_IMAGE_VER}"
+echo "  KVM_EMULATION:            ${KVM_EMULATION}"
+echo "  HCO_IMAGE_VER:            ${HCO_IMAGE_VER}"
 echo "  HCO_SUBSCRIPTION_CHANNEL: ${HCO_SUBSCRIPTION_CHANNEL}"
-echo "  VIRTCTL_VERSION:        ${VIRTCTL_VERSION}"
-echo "  HPP_VERSION:            ${HPP_VERSION}"
-echo "  SKIP_HPP:               ${SKIP_HPP}"
+echo "  VIRTCTL_VERSION:          ${VIRTCTL_VERSION}"
+echo "  HPP_VERSION:              ${HPP_VERSION}"
+echo "  SKIP_HPP:                 ${SKIP_HPP}"
 echo ""
-
-download_virtctl() {
-  VIRTCTL_DOWNLOAD_URL="https://github.com/kubevirt/kubevirt/releases/download/${VIRTCTL_VERSION}/virtctl-${VIRTCTL_VERSION}"
-  VIRTCTL_AMD64="${VIRTCTL_DOWNLOAD_URL}-linux-amd64"
-  VIRTCTL_X86_64="${VIRTCTL_DOWNLOAD_URL}-linux-x86_64"
-
-  mkdir -p "${REPO_ROOT}/virtctl"
-  wget "${VIRTCTL_AMD64}" -O "${REPO_ROOT}/virtctl/virtctl" --quiet \
-    || wget "${VIRTCTL_X86_64}" -O "${REPO_ROOT}/virtctl/virtctl" --quiet
-
-  if [[ ! -f "${REPO_ROOT}/virtctl/virtctl" ]]; then
-    echo "ERROR: virtctl binary is unavailable for download"
-    exit 1
-  fi
-
-  chmod +x "${REPO_ROOT}/virtctl/virtctl"
-  export PATH="${PATH}:${REPO_ROOT}/virtctl"
-}
 
 # --- CatalogSource ---
 echo "Creating HCO CatalogSource..."
@@ -158,7 +140,26 @@ fi
 
 # --- virtctl ---
 echo "Checking for virtctl..."
-command -v virtctl &>/dev/null || download_virtctl
+if ! command -v virtctl &>/dev/null; then
+  # DOWNLOAD_URL=$(oc get route downloads -n openshift-console -o jsonpath='{.spec.host}')
+  # https://hyperconverged-cluster-cli-download-kubevirt-hyperconverged.apps.<cluster>.<domain>/amd64/linux/virtctl.tar.gz
+  VIRTCTL_DOWNLOAD_URL="https://github.com/kubevirt/kubevirt/releases/download/${VIRTCTL_VERSION}/virtctl-${VIRTCTL_VERSION}"
+  VIRTCTL_AMD64="${VIRTCTL_DOWNLOAD_URL}-linux-amd64"
+  VIRTCTL_X86_64="${VIRTCTL_DOWNLOAD_URL}-linux-x86_64"
+
+  curl -k "https://$DOWNLOAD_URL/amd64/linux/oc.tar" -o virtctl.tar.gz
+  mkdir -p "${REPO_ROOT}/virtctl"
+  wget "${VIRTCTL_AMD64}" -O "${REPO_ROOT}/virtctl/virtctl" --quiet \
+    || wget "${VIRTCTL_X86_64}" -O "${REPO_ROOT}/virtctl/virtctl" --quiet
+
+  if [[ ! -f "${REPO_ROOT}/virtctl/virtctl" ]]; then
+    echo "ERROR: virtctl binary is unavailable for download"
+    exit 1
+  fi
+
+  chmod +x "${REPO_ROOT}/virtctl/virtctl"
+  export PATH="${PATH}:${REPO_ROOT}/virtctl"
+fi
 
 echo ""
 echo "=== HCO Installation Complete ==="
