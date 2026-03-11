@@ -136,7 +136,7 @@ jobs:
 
       - name: Wait for cluster to be ready to use
         run: |
-          bash ci-scripts/check-cluster-state.sh
+          bash ci-scripts/check-roks-cluster-state.sh
 
       - name: Install oc client from cluster
         run: |
