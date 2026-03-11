@@ -25,12 +25,19 @@ jobs:
       CYPRESS_TEST_SECRET_NAME: 'ci-test-secret'
       NO_COLOR: '1'
     steps:
-      # ARC runner pod runs on the cluster; use in-cluster config (no kubeconfig file needed).
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # ARC runner pod runs on the cluster; use in-cluster config. Install to user dir (no sudo in container).
       - name: Connect to cluster and install kubectl
         run: |
-          curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o kubectl
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+          BIN_DIR="${HOME}/bin"
+          mkdir -p "${BIN_DIR}"
+          echo "${BIN_DIR}" >> "$GITHUB_PATH"
+          echo "PATH=${BIN_DIR}:${PATH}" >> "$GITHUB_ENV"
+          curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o "${BIN_DIR}/kubectl"
+          chmod +x "${BIN_DIR}/kubectl"
+          export PATH="${BIN_DIR}:${PATH}"
           kubectl cluster-info
           kubectl get nodes -o wide
 
@@ -39,17 +46,15 @@ jobs:
           CONSOLE_URL=$(kubectl get consoles.config.openshift.io cluster -o jsonpath='{.status.consoleURL}')
           echo "BRIDGE_BASE_ADDRESS=${CONSOLE_URL}" >> "$GITHUB_ENV"
           echo "Console URL: ${CONSOLE_URL}"
-          # OpenShift console serves oc at /amd64/linux/oc.tar; extract to temp dir to handle any tar layout
+          BIN_DIR="${HOME}/bin"
           TMP_OC=$(mktemp -d)
           curl -fsSLk "${CONSOLE_URL}/amd64/linux/oc.tar" -o "${TMP_OC}/oc.tar"
           tar -xf "${TMP_OC}/oc.tar" -C "${TMP_OC}"
           OC_BIN=$(find "${TMP_OC}" -name oc -type f | head -1)
-          sudo mv "${OC_BIN}" /usr/local/bin/oc
+          mv "${OC_BIN}" "${BIN_DIR}/oc"
+          chmod +x "${BIN_DIR}/oc"
           rm -rf "${TMP_OC}"
           echo "oc version: $(oc version --client)"
-
-      - name: Checkout
-        uses: actions/checkout@v5
 
       - name: Setup Node
         uses: actions/setup-node@v6
