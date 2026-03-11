@@ -28,6 +28,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
       # ARC runner pod runs on the cluster; use in-cluster config. Install to user dir (no sudo in container).
       - name: Connect to cluster and install kubectl
         run: |
@@ -55,11 +60,6 @@ jobs:
           chmod +x "${BIN_DIR}/oc"
           rm -rf "${TMP_OC}"
           echo "oc version: $(oc version --client)"
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22'
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
