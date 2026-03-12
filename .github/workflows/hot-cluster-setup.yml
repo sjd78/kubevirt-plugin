@@ -167,22 +167,6 @@ jobs:
           fi
           echo "ARC secrets are present."
 
-      - name: Install ARC
-        env:
-          ARC_CONFIG_URL: 'https://github.com/${{ github.repository }}'
-          ARC_APP_ID: ${{ secrets.ARC_GITHUB_APP_ID }}
-          ARC_APP_INSTALL_ID: ${{ secrets.ARC_GITHUB_APP_INSTALL_ID }}
-          ARC_APP_PRIVATE_KEY: ${{ secrets.ARC_GITHUB_APP_PRIVATE_KEY }}
-          ARC_PAT: ${{ secrets.ARC_GITHUB_PAT }}
-        run: |
-          ./ci-scripts/install-arc.sh
-
-      - name: Install HCO
-        env:
-          KVM_EMULATION: ${{ inputs.kvm_emulation }}
-        run: |
-          ./ci-scripts/install-hco.sh
-
       - name: Build custom ARC runner image
         id: build_runner
         env:
@@ -192,7 +176,7 @@ jobs:
           IMAGE_REF=$(./ci-scripts/build-arc-runner-image.sh | tail -1)
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
 
-      - name: Use custom runner image for ARC
+      - name: Install ARC
         env:
           ARC_CONFIG_URL: 'https://github.com/${{ github.repository }}'
           ARC_APP_ID: ${{ secrets.ARC_GITHUB_APP_ID }}
@@ -200,8 +184,15 @@ jobs:
           ARC_APP_PRIVATE_KEY: ${{ secrets.ARC_GITHUB_APP_PRIVATE_KEY }}
           ARC_PAT: ${{ secrets.ARC_GITHUB_PAT }}
         run: |
-          ./ci-scripts/generate-arc-runner-values.sh "${{ steps.build_runner.outputs.image_ref }}" /tmp/arc-runner-values.yaml
-          ARC_RUNNER_VALUES_FILE=/tmp/arc-runner-values.yaml ./ci-scripts/install-arc.sh
+          export ARC_RUNNER_VALUES_FILE=/tmp/arc-runner-values.yaml
+          ./ci-scripts/generate-arc-runner-values.sh "${{ steps.build_runner.outputs.image_ref }}"
+          ./ci-scripts/install-arc.sh
+
+      - name: Install HCO
+        env:
+          KVM_EMULATION: ${{ inputs.kvm_emulation }}
+        run: |
+          ./ci-scripts/install-hco.sh
 
       - name: Verify cluster health
         env:

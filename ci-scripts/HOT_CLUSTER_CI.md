@@ -104,12 +104,24 @@ This avoids storing kubeconfig or credentials as GitHub secrets. Any workflow or
 
 ## Usage
 
+### Custom runner image
+
+The setup workflow builds a **custom runner image** on the cluster after HCO is installed. The image extends the official GitHub Actions runner with Node.js 22, kubectl, oc, and virtctl so workflow jobs do not need to install them. The image is built in-cluster (OpenShift BuildConfig, binary Docker build), pushed to the internal registry, and the ARC scale set is reconfigured to use it.
+
+- **Dockerfile**: `ci-scripts/runner-image/Dockerfile`
+- **Build**: `ci-scripts/build-arc-runner-image.sh` (run after ARC and HCO; creates BuildConfig, streams context, waits for build)
+- **Use the image**: `ci-scripts/generate-arc-runner-values.sh <image_ref> <output.yaml>` then re-run `install-arc.sh` with `ARC_RUNNER_VALUES_FILE=<output.yaml>`
+
+The generated values include a pod `securityContext` (runAsUser/runAsGroup/fsGroup 1001) so the runner process matches the image’s `runner` user and can write to `/home/runner/.npm` and `/home/runner/.tmp` (npm cache/tmp). Without this, OpenShift’s default random UID would make those directories unwritable.
+
+Optional env for the build script: `OC_VERSION` (e.g. 4.20), `VIRTCTL_VERSION` (e.g. v1.4.0), `ARC_RUNNERS_NS` (default arc-runners).
+
 ### Setting Up the Hot Cluster
 
 1. Go to Actions → "Hot Cluster Setup" → Run workflow
 2. Configure inputs (cluster name, region, OpenShift version, worker flavor, count)
 3. Click "Run workflow"
-4. Wait for completion (30-90 minutes for bare metal provisioning)
+4. Wait for completion (30-90 minutes for bare metal provisioning; includes building the custom runner image and reconfiguring ARC)
 
 ### Running CI Tests
 
@@ -128,11 +140,13 @@ This avoids storing kubeconfig or credentials as GitHub secrets. Any workflow or
 
 ## Scripts
 
-| Script                    | Purpose                                         |
-| ------------------------- | ----------------------------------------------- |
-| `install-hco.sh`          | Installs HCO operator, HPP storage, and virtctl |
-| `install-arc.sh`          | Installs ARC controller and runner scale set    |
-| `check-cluster-health.sh` | Verifies cluster, HCO, ARC, and storage health  |
+| Script                          | Purpose                                                            |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `install-hco.sh`                | Installs HCO operator, HPP storage, and virtctl                    |
+| `install-arc.sh`                | Installs ARC controller and runner scale set                       |
+| `build-arc-runner-image.sh`     | Builds custom runner image (Node, kubectl, oc, virtctl) in-cluster |
+| `generate-arc-runner-values.sh` | Writes values fragment so ARC uses the custom runner image         |
+| `check-cluster-health.sh`       | Verifies cluster, HCO, ARC, and storage health                     |
 
 ### Script Configuration
 
@@ -175,8 +189,28 @@ Bare metal nodes on IBM Cloud are expensive. The auto-teardown workflow provides
 - Check individual component status: `oc get pods -n kubevirt-hyperconverged`
 - Verify storage: `oc get storageclass`
 
+### `npm ci` fails in hot-cluster job
+
+- **"package-lock.json is out of sync"**: Run `npm install` locally and commit the updated `package-lock.json`.
+- **Node/npm version**: The workflow uses Node 22; the runner image must provide a compatible Node (or use `actions/setup-node`). Check the "Install dependencies" step log for `node -v` and `npm -v`.
+- **Network**: The runner must reach the npm registry. If the cluster restricts egress, allow `registry.npmjs.org` (and any private registries).
+
 ### Ghost runners after failed teardown
 
 - Go to repository Settings → Actions → Runners
 - Manually delete any offline runners
 - Or run the teardown workflow again (it includes ghost runner cleanup)
+
+### ARC runner `oc` / `kubectl` permissions
+
+Jobs that run on `hot-cluster` use the **default service account** in the `arc-runners` namespace. That account has minimal permissions by default, so steps like `oc cluster-info`, `oc get consoles.config.openshift.io`, creating test namespaces, or running Cypress setup/cleanup may fail with "Forbidden" or "Unauthorized".
+
+**Fix:** Grant the runner’s service account the needed privileges by applying the RBAC manifest after ARC is installed:
+
+```bash
+oc apply -f ci-scripts/arc-runner-rbac.yaml
+```
+
+This creates a `ClusterRole` (`arc-runner-ci`) with permissions to read cluster/console config, create and delete namespaces, and manage pods, VMs, DataVolumes, etc., and binds it to `system:serviceaccount:arc-runners:default`.
+
+For a disposable or single-tenant cluster you can instead grant full cluster-admin by using the alternative ClusterRoleBinding described in the comments at the top of `ci-scripts/arc-runner-rbac.yaml`.
