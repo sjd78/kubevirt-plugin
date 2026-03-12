@@ -32,6 +32,8 @@ jobs:
         run: |
           env | sort
           df -h
+          id
+          ls -l / /home
 
           kubectl version
           oc version
