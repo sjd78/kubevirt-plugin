@@ -29,16 +29,28 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Check the running container environment
+        # shell: bash -x {0}
         run: |
+          echo "*** checking environment ***"
           env | sort
           df -h
           id
           ls -l / /home /home/runner
-          touch /home/runner/test-file || echo "touch /home/runner/test-file failed"
+          echo "this is a test" > ${HOME}/test-file || echo "creating ${HOME}test-file failed"
 
-          kubectl version
-          oc version
-          virtctl version
+          echo "*** checking tools ***"
+          for cmd in kubectl oc virtctl; do
+            if command -v "$cmd" &>/dev/null; then
+              echo "  $cmd: found"
+              if "$cmd" version; then
+                echo "  $cmd version: OK"
+              else
+                echo "  $cmd version: FAILED (exit $?)"
+              fi
+            else
+              echo "  $cmd: not found"
+            fi
+          done
 
       # Node should already be installed by the runner image
       # - name: Setup Node
