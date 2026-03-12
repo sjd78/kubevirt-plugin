@@ -52,11 +52,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Use workspace dirs for cache/tmp so npm can write in restricted runner containers (no root).
-          mkdir -p "$GITHUB_WORKSPACE/.npm-cache" "$GITHUB_WORKSPACE/.tmp"
-          export TMPDIR="$GITHUB_WORKSPACE/.tmp"
-          npm config set cache "$GITHUB_WORKSPACE/.npm-cache"
-          npm config set tmp "$GITHUB_WORKSPACE/.tmp"
           npm ci --ignore-scripts
 
       - name: Setup test environment
