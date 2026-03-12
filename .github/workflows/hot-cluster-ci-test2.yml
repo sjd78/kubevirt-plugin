@@ -54,7 +54,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm ci --ignore-scripts
+          npm config list
+          npm ci --ignore-scripts --verbose --no-audit
 
       - name: Setup test environment
         run: bash test-setup.sh
