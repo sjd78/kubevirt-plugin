@@ -86,6 +86,7 @@ jobs:
             ELAPSED=$((ELAPSED + INTERVAL))
           done
 
+      # TODO: Followup about how to manually delete "Runner scale sets" from ARC
       - name: Clean up ghost runners
         continue-on-error: true
         env:
