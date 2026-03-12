@@ -38,6 +38,7 @@ RUN VIRTCTL_URL="https://github.com/kubevirt/kubevirt/releases/download/${VIRTCT
     && chmod +x /usr/local/bin/virtctl
 
 # Writable dirs for npm under runner HOME (OpenShift non-root: only HOME is reliably writable)
+# Note: The rw volume needs to be available in the running container
 RUN mkdir -p /home/runner/.npm /home/runner/.tmp \
     && chown -R runner:root /home/runner
     # && npm -g config set cache /home/runner/.npm \

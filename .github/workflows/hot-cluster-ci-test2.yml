@@ -34,11 +34,11 @@ jobs:
           df -h
           id
           ls -l / /home /home/runner
-
-          kubectl version || echo "kubectl version failed"
-          oc version || echo "oc version failed"
-          virtctl version || echo "virtctl version failed"
           touch /home/runner/test-file || echo "touch /home/runner/test-file failed"
+
+          kubectl version
+          oc version
+          virtctl version
 
       # Node should already be installed by the runner image
       # - name: Setup Node

@@ -4,11 +4,6 @@
 # Deploys the controller and a runner scale set that registers as self-hosted
 # runners with the GitHub repository.
 #
-# This script uses the official GitHub ARC (runner scale sets), not the older
-# summerwind/actions-runner-controller. The scale set chart both defines the
-# "runner deployment" and handles scaling (min/max); no separate RunnerDeployment
-# or HorizontalRunnerAutoscaler YAML is needed.
-#
 # Required environment variables:
 #   ARC_CONFIG_URL         - Repository or org URL (e.g., https://github.com/org/repo)
 #
@@ -31,7 +26,7 @@
 #   CONTAINER_MODE         - Set to "dind" to enable Docker-in-Docker for container jobs (default: unset)
 #   ARC_RUNNER_VALUES_FILE - Path to a YAML file to merge for gha-runner-scale-set (template, custom image, etc.)
 
-set -euox pipefail
+set -euo pipefail
 
 ARC_CONFIG_URL="${ARC_CONFIG_URL:?ARC_CONFIG_URL is required}"
 RUNNER_SCALE_SET_NAME="${RUNNER_SCALE_SET_NAME:-hot-cluster}"
@@ -80,18 +75,19 @@ helm upgrade --install arc \
 echo "ARC controller installed successfully"
 
 # --- Build authentication args ---
-AUTH_ARGS=""
+AUTH_ARGS=()
 if [[ -n "${ARC_APP_ID:-}" && -n "${ARC_APP_INSTALL_ID:-}" && -n "${ARC_APP_PRIVATE_KEY:-}" ]]; then
   echo "Using GitHub App authentication"
-  AUTH_ARGS="--set githubConfigSecret.github_app_id=${ARC_APP_ID}"
-  AUTH_ARGS="${AUTH_ARGS} --set githubConfigSecret.github_app_installation_id=${ARC_APP_INSTALL_ID}"
-
+  AUTH_ARGS+=(
+    --set "githubConfigSecret.github_app_id=${ARC_APP_ID}"
+    --set "githubConfigSecret.github_app_installation_id=${ARC_APP_INSTALL_ID}"
+  )
   TEMP_KEY_FILE=$(mktemp)
   echo "${ARC_APP_PRIVATE_KEY}" > "${TEMP_KEY_FILE}"
-  AUTH_ARGS="${AUTH_ARGS} --set-file githubConfigSecret.github_app_private_key=${TEMP_KEY_FILE}"
+  AUTH_ARGS+=(--set-file "githubConfigSecret.github_app_private_key=${TEMP_KEY_FILE}")
 elif [[ -n "${ARC_PAT:-}" ]]; then
   echo "Using Personal Access Token authentication"
-  AUTH_ARGS="--set githubConfigSecret.github_token=${ARC_PAT}"
+  AUTH_ARGS+=(--set "githubConfigSecret.github_token=${ARC_PAT}")
 else
   echo "ERROR: No authentication configured."
   echo "Set ARC_APP_ID + ARC_APP_INSTALL_ID + ARC_APP_PRIVATE_KEY, or ARC_PAT"
@@ -102,21 +98,26 @@ fi
 # Optional: enable Docker-in-Docker for workflows that use container jobs or container actions.
 # Optional: custom runner image, resources, or other template overrides via ARC_RUNNER_VALUES_FILE
 # (see https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller/deploying-runner-scale-sets-with-actions-runner-controller)
-RUNNER_SET_ARGS="--set githubConfigUrl=\"${ARC_CONFIG_URL}\" --set minRunners=${MIN_RUNNERS} --set maxRunners=${MAX_RUNNERS} ${AUTH_ARGS}"
+RUNNER_SET_ARGS=(
+  --set "githubConfigUrl=${ARC_CONFIG_URL}"
+  --set "minRunners=${MIN_RUNNERS}"
+  --set "maxRunners=${MAX_RUNNERS}"
+  "${AUTH_ARGS[@]}"
+)
 if [[ -n "${CONTAINER_MODE:-}" ]]; then
   echo "Enabling container mode: ${CONTAINER_MODE}"
-  RUNNER_SET_ARGS="${RUNNER_SET_ARGS} --set containerMode.type=${CONTAINER_MODE}"
+  RUNNER_SET_ARGS+=(--set "containerMode.type=${CONTAINER_MODE}")
 fi
 if [[ -n "${ARC_RUNNER_VALUES_FILE:-}" && -f "${ARC_RUNNER_VALUES_FILE}" ]]; then
   echo "Using runner values file: ${ARC_RUNNER_VALUES_FILE}"
-  RUNNER_SET_ARGS="${RUNNER_SET_ARGS} --values ${ARC_RUNNER_VALUES_FILE}"
+  RUNNER_SET_ARGS+=(--values "${ARC_RUNNER_VALUES_FILE}")
 fi
 
 echo "Installing ARC runner scale set '${RUNNER_SCALE_SET_NAME}'..."
 helm upgrade --install "${RUNNER_SCALE_SET_NAME}" \
   ${VERSION_FLAG} \
   --namespace "${ARC_RUNNERS_NS}" \
-  ${RUNNER_SET_ARGS} \
+  "${RUNNER_SET_ARGS[@]}" \
   "${ARC_HELM_REPO}/gha-runner-scale-set" \
   --wait
 
