@@ -28,22 +28,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Check kubectl and oc
+      - name: Check the running container environment
         run: |
           env | sort
           df -h
           id
           ls -l / /home /home/runner
 
-          kubectl version
-          oc version
-          virtctl version
-
-          # kubectl cluster-info || echo "kubectl cluster-info failed"
-          # kubectl get nodes -o wide || echo "kubectl get nodes -o wide failed"
-
-          # oc cluster-info || echo "oc cluster-info failed"
-          # oc get nodes -o wide || echo "oc get nodes -o wide failed"
+          kubectl version || echo "kubectl version failed"
+          oc version || echo "oc version failed"
+          virtctl version || echo "virtctl version failed"
+          touch /home/runner/test-file || echo "touch /home/runner/test-file failed"
 
       # Node should already be installed by the runner image
       # - name: Setup Node
