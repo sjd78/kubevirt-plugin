@@ -1,4 +1,4 @@
-name: Hot Cluster Setup
+name: IBM Cloud Hot Cluster Setup
 
 on:
   workflow_dispatch:

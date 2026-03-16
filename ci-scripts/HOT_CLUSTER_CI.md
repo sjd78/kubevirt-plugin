@@ -15,7 +15,7 @@ GitHub Actions (workflow_dispatch)
         ├── Job 1: cluster-health-check (ubuntu-latest)
         │     └── Runs ci-scripts/check-cluster-health.sh
         │
-        └── Job 2: run-gating-tests (runs-on: hot-cluster)
+        └── Job 2: run-gating-tests (runs-on: kubevirt-plugin-ci)
               └── Cypress E2E tests in off-cluster UI mode
 ```
 
@@ -128,7 +128,7 @@ Optional env for the build script: `OC_VERSION` (e.g. 4.20), `VIRTCTL_VERSION` (
 2. Optionally customize the test spec (defaults to `tests/gating.cy.ts`)
 3. The workflow will:
    - Run a health check on `ubuntu-latest` to verify the cluster is ready
-   - If healthy, run gating tests on the `hot-cluster` self-hosted runner
+   - If healthy, run gating tests on the `kubevirt-plugin-ci` self-hosted runner
    - Upload test artifacts (screenshots, videos) on completion
 
 ### Tearing Down the Cluster
@@ -172,7 +172,7 @@ All scripts accept configuration via environment variables. See the header comme
 Key defaults:
 
 - `KVM_EMULATION=false` (bare metal has real KVM)
-- `RUNNER_SCALE_SET_NAME=hot-cluster` (the `runs-on:` label)
+- `RUNNER_SCALE_SET_NAME=kubevirt-plugin-ci` (the `runs-on:` label)
 - `MIN_RUNNERS=0`
 - `MAX_RUNNERS=5`
 
@@ -207,7 +207,7 @@ Bare metal nodes on IBM Cloud are expensive. The auto-teardown workflow provides
 - Check individual component status: `oc get pods -n kubevirt-hyperconverged`
 - Verify storage: `oc get storageclass`
 
-### `npm ci` fails in hot-cluster job
+### `npm ci` fails in kubevirt-plugin-ci job
 
 - **"package-lock.json is out of sync"**: Run `npm install` locally and commit the updated `package-lock.json`.
 - **Node/npm version**: The workflow uses Node 22; the runner image must provide a compatible Node (or use `actions/setup-node`). Check the "Install dependencies" step log for `node -v` and `npm -v`.
@@ -222,7 +222,7 @@ Bare metal nodes on IBM Cloud are expensive. The auto-teardown workflow provides
 
 ### ARC runner `oc` / `kubectl` permissions
 
-Jobs that run on `hot-cluster` use the **default service account** in the `arc-runners` namespace. That account has minimal permissions by default, so steps like `oc cluster-info`, `oc get consoles.config.openshift.io`, creating test namespaces, or running Cypress setup/cleanup may fail with "Forbidden" or "Unauthorized".
+Jobs that run on `kubevirt-plugin-ci` use the **default service account** in the `arc-runners` namespace. That account has minimal permissions by default, so steps like `oc cluster-info`, `oc get consoles.config.openshift.io`, creating test namespaces, or running Cypress setup/cleanup may fail with "Forbidden" or "Unauthorized".
 
 **Fix:** Grant the runner’s service account the needed privileges by applying the RBAC manifest after ARC is installed:
 

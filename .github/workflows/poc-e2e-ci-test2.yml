@@ -1,4 +1,4 @@
-name: Hot Cluster CI Test 2
+name: POC Hot Cluster E2E CI Test 2
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ permissions:
 jobs:
   run-gating-tests:
     name: Run Gating Tests
-    runs-on: hot-cluster
+    runs-on: kubevirt-plugin-ci
     timeout-minutes: 120
     env:
       CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
@@ -52,6 +52,14 @@ jobs:
             fi
           done
 
+      - name: Setup cluster resources (namespace, oauth, etc.)
+        run: |
+          oc cluster-info
+
+      - name: Setup test environment
+        run: |
+          bash test-setup.sh
+
       # Node should already be installed by the runner image
       # - name: Setup Node
       #   uses: actions/setup-node@v6
@@ -63,9 +71,6 @@ jobs:
         run: |
           npm config list -l
           npm ci --ignore-scripts --verbose --no-audit
-
-      - name: Setup test environment
-        run: bash test-setup.sh
 
       - name: Run Cypress gating tests
         run: |
@@ -105,12 +110,17 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Cleanup test resources
+      - name: Cleanup test environment
         if: always()
         run: |
           export TEST_NS="${CYPRESS_TEST_NS}"
           bash test-cleanup.sh || echo "Cleanup encountered errors (non-fatal)"
           oc delete namespace "${CYPRESS_TEST_NS}" --wait=false 2>/dev/null || true
+
+      - name: Cleanup cluster resources
+        if: always()
+        run: |
+          oc cluster-info
 
       - name: Test summary
         if: always()

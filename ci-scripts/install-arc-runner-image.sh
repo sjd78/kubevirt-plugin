@@ -9,29 +9,32 @@
 # as image-registry.openshift-image-registry.svc:5000/<ARC_RUNNERS_NS>/arc-runner-custom:latest
 #
 # Optional environment variables:
-#   ARC_RUNNERS_NS   - Namespace for runners and built image (default: arc-runners)
-#   OC_VERSION       - OpenShift client version to bake in (default: 4.20)
-#   VIRTCTL_VERSION  - virtctl version to bake in (default: v1.4.0)
+#   ARC_RUNNERS_NS         - Namespace for runners and built image (default: arc-runners)
+#   RUNNER_SCALE_SET_NAME  - Name for the runner scale set (default: "kubevirt-plugin-ci")
+#   OC_VERSION             - OpenShift client version to bake in (default: 4.20)
+#   VIRTCTL_VERSION        - virtctl version to bake in (default: v1.4.0)
 #
 # Output: writes the image reference to stdout and to ARC_RUNNER_IMAGE_FILE if set.
 
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+RUNNER_IMAGE_DIR="${SCRIPT_DIR}/runner-image"
 
 ARC_RUNNERS_NS="${ARC_RUNNERS_NS:-arc-runners}"
+RUNNER_SCALE_SET_NAME="${RUNNER_SCALE_SET_NAME:-kubevirt-plugin-ci}"
+
 if [[ -z "${OC_VERSION:-}" ]]; then
   OC_VERSION=$(oc version --output json 2>/dev/null | jq -r '.openshiftVersion | split(".") | .[0:2] | join(".") // empty') || true
   OC_VERSION="${OC_VERSION:-4.20}"
 fi
 VIRTCTL_VERSION="${VIRTCTL_VERSION:-v1.4.0}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-RUNNER_IMAGE_DIR="${SCRIPT_DIR}/runner-image"
-
 echo "=== Build ARC runner image (in-cluster) ==="
-echo "  ARC_RUNNERS_NS:  ${ARC_RUNNERS_NS}"
-echo "  OC_VERSION:      ${OC_VERSION}"
-echo "  VIRTCTL_VERSION: ${VIRTCTL_VERSION}"
+echo "  ARC_RUNNERS_NS:        ${ARC_RUNNERS_NS}"
+echo "  RUNNER_SCALE_SET_NAME: ${RUNNER_SCALE_SET_NAME}"
+echo "  OC_VERSION:            ${OC_VERSION}"
+echo "  VIRTCTL_VERSION:       ${VIRTCTL_VERSION}"
 echo ""
 
 if [[ ! -f "${RUNNER_IMAGE_DIR}/Dockerfile" ]]; then
@@ -92,12 +95,12 @@ echo "Image: ${IMAGE_REF}"
 
 echo ""
 echo "=== Update ARC runner scale set ==="
+TEMP_VALUES_FILE=$(mktemp --suffix=.yaml)
 
+#
 # Values fragment must match gha-runner-scale-set chart: template.spec is the PodSpec,
 # containers[0] must be name: runner with image and command (see chart values.yaml).
 # Add work volume for /home/runner/_work; npm emptyDirs so cache/tmp are writable (OpenShift random UID).
-TEMP_VALUES_FILE=$(mktemp --suffix=.yaml)
-
 #
 # See the helm chart values.yaml for the available values:
 #   https://github.com/actions/actions-runner-controller/blob/master/charts/gha-runner-scale-set/values.yaml
@@ -126,8 +129,10 @@ template:
             mountPath: "/home/runner/.tmp"
 EOF
 
-helm upgrade hot-cluster oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
-  --namespace arc-runners \
+helm upgrade "${RUNNER_SCALE_SET_NAME}" oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+  --namespace "${ARC_RUNNERS_NS}" \
   --reuse-values \
   --values "${TEMP_VALUES_FILE}" \
   --wait
+
+rm -f "${TEMP_VALUES_FILE}"

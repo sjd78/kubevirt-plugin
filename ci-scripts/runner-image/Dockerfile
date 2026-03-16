@@ -1,4 +1,4 @@
-# Custom GitHub Actions runner image for hot-cluster CI.
+# Custom GitHub Actions runner image for kubevirt-plugin-ci CI.
 # Extends the official runner image with Node.js, kubectl, oc, and virtctl
 # so workflows do not need to install them at job start.
 #

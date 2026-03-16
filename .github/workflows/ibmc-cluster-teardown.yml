@@ -1,4 +1,4 @@
-name: Hot Cluster Teardown
+name: IBM Cloud Hot Cluster Teardown
 
 on:
   workflow_dispatch:
@@ -56,7 +56,7 @@ jobs:
         run: |
           if command -v helm &>/dev/null || (curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash); then
             echo "Uninstalling ARC runner scale set..."
-            helm uninstall hot-cluster --namespace arc-runners --wait --timeout 5m 2>/dev/null || echo "Runner scale set not found or already removed"
+            helm uninstall kubevirt-plugin-ci --namespace arc-runners --wait --timeout 5m 2>/dev/null || echo "Runner scale set not found or already removed"
 
             echo "Uninstalling ARC controller..."
             helm uninstall arc --namespace arc-systems --wait --timeout 5m 2>/dev/null || echo "ARC controller not found or already removed"
@@ -93,10 +93,10 @@ jobs:
           GH_TOKEN: ${{ secrets.BOT_PAT }}
         run: |
           echo "Checking for offline self-hosted runners..."
-          RUNNERS=$(gh api "/repos/${{ github.repository }}/actions/runners" --jq '.runners[] | select(.status == "offline") | select(.labels[].name == "hot-cluster") | .id' 2>/dev/null || true)
+          RUNNERS=$(gh api "/repos/${{ github.repository }}/actions/runners" --jq '.runners[] | select(.status == "offline") | select(.labels[].name == "kubevirt-plugin-ci") | .id' 2>/dev/null || true)
 
           if [[ -z "${RUNNERS}" ]]; then
-            echo "No offline 'hot-cluster' runners found"
+            echo "No offline 'kubevirt-plugin-ci' runners found"
           else
             for runner_id in ${RUNNERS}; do
               echo "Deleting offline runner ${runner_id}..."

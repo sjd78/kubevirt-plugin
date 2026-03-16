@@ -17,7 +17,7 @@
 #     ARC_PAT                - Fine-grained PAT with administration:write
 #
 # Optional environment variables:
-#   RUNNER_SCALE_SET_NAME  - Name for the runner scale set (default: "hot-cluster")
+#   RUNNER_SCALE_SET_NAME  - Name for the runner scale set (default: "kubevirt-plugin-ci")
 #   MIN_RUNNERS            - Minimum number of runners (default: 0)
 #   MAX_RUNNERS            - Maximum number of runners (default: 5)
 #   ARC_CONTROLLER_NS      - Namespace for the ARC controller (default: "arc-systems")
@@ -31,7 +31,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/ci-tools.sh"
 
 ARC_CONFIG_URL="${ARC_CONFIG_URL:?ARC_CONFIG_URL is required}"
-RUNNER_SCALE_SET_NAME="${RUNNER_SCALE_SET_NAME:-hot-cluster}"
+RUNNER_SCALE_SET_NAME="${RUNNER_SCALE_SET_NAME:-kubevirt-plugin-ci}"
 MIN_RUNNERS="${MIN_RUNNERS:-0}"
 MAX_RUNNERS="${MAX_RUNNERS:-5}"
 ARC_CONTROLLER_NS="${ARC_CONTROLLER_NS:-arc-systems}"

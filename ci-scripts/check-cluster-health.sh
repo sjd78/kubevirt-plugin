@@ -85,7 +85,7 @@ check "ARC runner pods in ${ARC_RUNNERS_NS}" bash -c "
 # --- Verify runners registered (scale set or legacy) ---
 # Runner scale sets (ARC) do not appear in GET /repos/.../actions/runners. If we have
 # ARC pods in the cluster, we treat that as "runners available". Otherwise we check the
-# legacy API for online runners with label "hot-cluster".
+# legacy API for online runners with label "kubevirt-plugin-ci".
 HAS_ARC_PODS=0
 if oc get namespace "${ARC_RUNNERS_NS}" &>/dev/null; then
   pod_count=$(oc get pods -n "${ARC_RUNNERS_NS}" --no-headers 2>/dev/null | wc -l)
@@ -100,15 +100,15 @@ elif [[ "${HAS_ARC_PODS}" -eq 1 ]]; then
 elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
   check "runners registered (scale set or legacy)" bash -c '
     echo "Checking for runners (scale set or legacy)..."
-    # No ARC pods: fall back to legacy self-hosted runners API (online + hot-cluster label).
+    # No ARC pods: fall back to legacy self-hosted runners API (online + kubevirt-plugin-ci label).
     online_count=$(gh api "/repos/'"${GITHUB_REPOSITORY}"'/actions/runners" \
-      --jq "[.runners[] | select(.status == \"online\") | select(.labels[].name == \"hot-cluster\")] | length" 2>/dev/null || echo "0")
+      --jq "[.runners[] | select(.status == \"online\") | select(.labels[].name == \"kubevirt-plugin-ci\")] | length" 2>/dev/null || echo "0")
     if [[ "${online_count}" -ge 1 ]]; then
-      echo "  ${online_count} online runner(s) with label hot-cluster"
+      echo "  ${online_count} online runner(s) with label kubevirt-plugin-ci"
       exit 0
     else
-      echo "::error::No runners found: no ARC pods in '"${ARC_RUNNERS_NS}"' and no online legacy runners with label hot-cluster."
-      echo "  The Run Gating Tests job uses runs-on: hot-cluster. Ensure ARC is installed and the scale set is registered."
+      echo "::error::No runners found: no ARC pods in '"${ARC_RUNNERS_NS}"' and no online legacy runners with label kubevirt-plugin-ci."
+      echo "  The Run Gating Tests job uses runs-on: kubevirt-plugin-ci. Ensure ARC is installed and the scale set is registered."
       exit 1
     fi
   '

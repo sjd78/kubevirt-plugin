@@ -1,4 +1,4 @@
-name: Hot Cluster CI Test
+name: POC Hot ClusterE2E CI Test
 
 on:
   workflow_dispatch:
@@ -83,7 +83,7 @@ jobs:
   run-gating-tests:
     name: Run Gating Tests
     needs: cluster-health-check
-    runs-on: hot-cluster
+    runs-on: kubevirt-plugin-ci
     timeout-minutes: 120
     env:
       BRIDGE_BASE_ADDRESS: ${{ needs.cluster-health-check.outputs.console_url }}
