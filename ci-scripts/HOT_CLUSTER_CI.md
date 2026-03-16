@@ -109,8 +109,7 @@ This avoids storing kubeconfig or credentials as GitHub secrets. Any workflow or
 The setup workflow builds a **custom runner image** on the cluster after HCO is installed. The image extends the official GitHub Actions runner with Node.js 22, kubectl, oc, and virtctl so workflow jobs do not need to install them. The image is built in-cluster (OpenShift BuildConfig, binary Docker build), pushed to the internal registry, and the ARC scale set is reconfigured to use it.
 
 - **Dockerfile**: `ci-scripts/runner-image/Dockerfile`
-- **Build**: `ci-scripts/build-arc-runner-image.sh` (run after ARC and HCO; creates BuildConfig, streams context, waits for build)
-- **Use the image**: `ci-scripts/generate-arc-runner-values.sh <image_ref> <output.yaml>` then either run `install-arc.sh` with `ARC_RUNNER_VALUES_FILE=<output.yaml>` (full install) or **`ci-scripts/update-arc-runner.sh <output.yaml>`** to only update the runner scale set (no auth needed; uses `helm upgrade --reuse-values`).
+- **Build and install the image**: `ci-scripts/install-arc-runner-image.sh` (run after ARC and HCO; creates BuildConfig, streams context, waits for build, patches the ARC runner scale set to use the images)
 
 The generated values mount emptyDir volumes at `/home/runner/.npm` and `/home/runner/.tmp` so npm can write regardless of UID (SCCs disallow fixed runAsUser/fsGroup). Previously we tried a pod `securityContext` (runAsUser/runAsGroup/fsGroup 1001) so the runner process matches the image’s `runner` user and can write to `/home/runner/.npm` and `/home/runner/.tmp` (npm cache/tmp). Without this, OpenShift’s default random UID would make those directories unwritable.
 
@@ -149,6 +148,23 @@ Optional env for the build script: `OC_VERSION` (e.g. 4.20), `VIRTCTL_VERSION` (
 | `generate-arc-runner-values.sh` | Writes values fragment so ARC uses the custom runner image                         |
 | `check-cluster-health.sh`       | Verifies cluster, HCO, ARC, and storage health                                     |
 
+### CI tools (helm, kubectl, oc, virtctl)
+
+Scripts that need **helm**, **kubectl**, **oc**, or **virtctl** can source `ci-scripts/ci-tools.sh` and call the appropriate `ensure_*` function. Downloads are installed into `CI_TOOLS_DIR` (default: `ci-scripts/_ci_tools`) and added to `PATH`.
+
+**Environment variables** (all optional; used when tools are downloaded):
+
+| Variable          | Default                      | Description                    |
+| ----------------- | ---------------------------- | ------------------------------ |
+| `CI_TOOLS_DIR`    | `_ci_tools` under script dir | Install directory for binaries |
+| `HELM_VERSION`    | v3.16.3                      | Helm version                   |
+| `KUBECTL_VERSION` | stable                       | kubectl version or "stable"    |
+| `OC_VERSION`      | 4.20                         | OpenShift client version       |
+| `VIRTCTL_VERSION` | v1.4.0                       | virtctl version                |
+| `CI_ARCH`         | amd64                        | Binary architecture            |
+
+**Functions:** `ensure_helm`, `ensure_kubectl`, `ensure_oc`, `ensure_virtctl`, `ensure_all_ci_tools`. Optional first argument overrides the corresponding env var (e.g. `ensure_helm v3.12.0`).
+
 ### Script Configuration
 
 All scripts accept configuration via environment variables. See the header comments in each script for details.
@@ -157,7 +173,8 @@ Key defaults:
 
 - `KVM_EMULATION=false` (bare metal has real KVM)
 - `RUNNER_SCALE_SET_NAME=hot-cluster` (the `runs-on:` label)
-- `MIN_RUNNERS=0`, `MAX_RUNNERS=5`
+- `MIN_RUNNERS=0`
+- `MAX_RUNNERS=5`
 
 ## Cost Control
 
@@ -195,6 +212,7 @@ Bare metal nodes on IBM Cloud are expensive. The auto-teardown workflow provides
 - **"package-lock.json is out of sync"**: Run `npm install` locally and commit the updated `package-lock.json`.
 - **Node/npm version**: The workflow uses Node 22; the runner image must provide a compatible Node (or use `actions/setup-node`). Check the "Install dependencies" step log for `node -v` and `npm -v`.
 - **Network**: The runner must reach the npm registry. If the cluster restricts egress, allow `registry.npmjs.org` (and any private registries).
+- **RW Access**: The runner must have writable volumes for npm global configuration and package caching
 
 ### Ghost runners after failed teardown
 

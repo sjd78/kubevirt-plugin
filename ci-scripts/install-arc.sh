@@ -27,6 +27,8 @@
 #   ARC_RUNNER_VALUES_FILE - Path to a YAML file to merge for gha-runner-scale-set (template, custom image, etc.)
 
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/ci-tools.sh"
 
 ARC_CONFIG_URL="${ARC_CONFIG_URL:?ARC_CONFIG_URL is required}"
 RUNNER_SCALE_SET_NAME="${RUNNER_SCALE_SET_NAME:-hot-cluster}"
@@ -47,11 +49,9 @@ echo "  ARC_CONTROLLER_NS:     ${ARC_CONTROLLER_NS}"
 echo "  ARC_RUNNERS_NS:        ${ARC_RUNNERS_NS}"
 echo ""
 
-# --- Ensure Helm is available ---
-if ! command -v helm &>/dev/null; then
-  echo "Installing Helm..."
-  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-fi
+# --- Ensure tools are available ---
+ensure_helm
+ensure_oc
 
 # --- Build version flag ---
 VERSION_FLAG=""
