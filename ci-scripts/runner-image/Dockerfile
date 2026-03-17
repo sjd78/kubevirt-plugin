@@ -1,9 +1,6 @@
 # Custom GitHub Actions runner image for kubevirt-plugin-ci CI.
 # Extends the official runner image with Node.js, kubectl, oc, and virtctl
 # so workflows do not need to install them at job start.
-#
-# Build on the cluster with: ci-scripts/build-arc-runner-image.sh
-# Then configure ARC to use the built image via ARC_RUNNER_VALUES_FILE.
 
 ARG RUNNER_BASE=ghcr.io/actions/actions-runner:latest
 FROM ${RUNNER_BASE}
@@ -16,6 +13,12 @@ ARG KUBECTL_VERSION=
 ARG VIRTCTL_VERSION=v1.4.0
 # OpenShift client version to match cluster (e.g. 4.20)
 ARG OC_VERSION=4.20
+
+# jq (for route-console.sh / BRIDGE_PLUGIN_PROXY), podman (run console + plugin containers for E2E)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends jq podman \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Node.js (LTS)
 RUN apt-get update \

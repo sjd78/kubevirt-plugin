@@ -13,6 +13,13 @@ permissions:
   contents: read
   actions: read
 
+env:
+  BRIDGE_BASE_ADDRESS: 'http://localhost:9000'
+  CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
+  CYPRESS_OS_IMAGES_NS: 'kubevirt-os-images'
+  CYPRESS_TEST_NS: 'kubevirt-plugin-ci-test-${{ github.run_id }}'
+  CYPRESS_TEST_SECRET_NAME: 'ci-test-secret'
+
 jobs:
   run-gating-tests:
     name: Run Gating Tests
@@ -21,12 +28,9 @@ jobs:
     env:
       CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
       CYPRESS_OS_IMAGES_NS: 'kubevirt-os-images'
-      CYPRESS_TEST_NS: 'ci-test-${{ github.run_id }}'
-      CYPRESS_TEST_SECRET_NAME: 'ci-test-secret'
-      NO_COLOR: '1'
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check the running container environment
         # shell: bash -x {0}
@@ -39,9 +43,16 @@ jobs:
           echo "this is a test" > ${HOME}/test-file || echo "creating ${HOME}test-file failed"
 
           echo "*** checking tools ***"
-          for cmd in kubectl oc virtctl; do
+          for cmd in kubectl oc virtctl podman jq curl; do
             if command -v "$cmd" &>/dev/null; then
               echo "  $cmd: found"
+            else
+              echo "  $cmd: not found"
+            fi
+          done
+
+          for cmd in kubectl oc virtctl; do
+            if command -v "$cmd" &>/dev/null; then
               if "$cmd" version; then
                 echo "  $cmd version: OK"
               else
@@ -52,29 +63,50 @@ jobs:
             fi
           done
 
-      - name: Setup cluster resources (namespace, oauth, etc.)
+      - name: Build kubevirt-plugin image
         run: |
-          oc cluster-info
+          podman build -t kubevirt-plugin:ci -f Dockerfile .
 
-      - name: Setup test environment
+      - name: Setup required cluster resources
         run: |
           bash test-setup.sh
 
-      # Node should already be installed by the runner image
-      # - name: Setup Node
-      #   uses: actions/setup-node@v6
-      #   with:
-      #     node-version-file: 'package.json'
-      #     cache: 'npm'
-
+      # TODO: Either use the setup-node action with caching, or add explicit caching
       - name: Install dependencies
         run: |
           npm config list -l
           npm ci --ignore-scripts --verbose --no-audit
 
+      - name: Start kubevirt-plugin container
+        run: |
+          podman run -d --rm --name kubevirt-plugin -p 9001:80 kubevirt-plugin:ci
+          echo "Waiting for plugin at http://localhost:9001..."
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/ | grep -q 200; then break; fi
+            [ "$i" -eq 30 ] && (echo "Plugin did not become ready"; exit 1)
+            sleep 2
+          done
+
+      - name: Start the "off cluster" console
+        run: |
+          bash start-console.sh &
+          echo "Waiting for console at ${BRIDGE_BASE_ADDRESS}..."
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null -w "%{http_code}" "${BRIDGE_BASE_ADDRESS}/" | grep -qE '200|301|302'; then break; fi
+            [ "$i" -eq 60 ] && (echo "Console did not become ready"; exit 1)
+            sleep 5
+          done
+
       - name: Run Cypress gating tests
+        env:
+          BRIDGE_BASE_ADDRESS: 'http://localhost:9000'
         run: |
           npm run test-cypress-headless -- --spec="${{ inputs.test_spec }}"
+
+      - name: Stop the "off cluster" console and plugin
+        if: always()
+        run: |
+          bash stop-console.sh
 
       - name: Generate test report
         if: always()
@@ -110,16 +142,12 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Cleanup test environment
+      - name: Cleanup cluster resources
         if: always()
         run: |
           export TEST_NS="${CYPRESS_TEST_NS}"
           bash test-cleanup.sh || echo "Cleanup encountered errors (non-fatal)"
           oc delete namespace "${CYPRESS_TEST_NS}" --wait=false 2>/dev/null || true
-
-      - name: Cleanup cluster resources
-        if: always()
-        run: |
           oc cluster-info
 
       - name: Test summary
