@@ -39,6 +39,7 @@ jobs:
 
   run-gating-tests:
     name: Run Gating Tests
+    needs: build-kubevirt-plugin-image
     runs-on: kubevirt-plugin-ci
     timeout-minutes: 120
     env:
