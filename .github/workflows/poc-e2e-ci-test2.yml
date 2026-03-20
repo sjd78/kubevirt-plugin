@@ -20,7 +20,23 @@ env:
   CYPRESS_TEST_NS: 'kubevirt-plugin-ci-test-${{ github.run_id }}'
   CYPRESS_TEST_SECRET_NAME: 'ci-test-secret'
 
+  KUBEVIRT_PLUGIN_IMAGE: 'ttl.sh/kubevirt-plugin-ci-${{ github.run_id }}-${{ github.run_number }}:2h'
+
 jobs:
+  build-kubevirt-plugin-image:
+    name: Build Kubevirt Plugin Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build kubevirt-plugin image
+        env:
+          KUBEVIRT_PLUGIN_IMAGE: ${{ env.KUBEVIRT_PLUGIN_IMAGE }}
+        run: |
+          docker build -t ${KUBEVIRT_PLUGIN_IMAGE} -f Dockerfile .
+          docker push ${KUBEVIRT_PLUGIN_IMAGE}
+
   run-gating-tests:
     name: Run Gating Tests
     runs-on: kubevirt-plugin-ci
@@ -28,6 +44,18 @@ jobs:
     env:
       CYPRESS_CNV_NS: 'kubevirt-hyperconverged'
       CYPRESS_OS_IMAGES_NS: 'kubevirt-os-images'
+
+    services:
+      kubevirt-plugin:
+        image: ${KUBEVIRT_PLUGIN_IMAGE}
+        ports:
+          - 9001:80
+
+      # console:
+      #   image: ${CONSOLE_IMAGE}
+      #   ports:
+      #     - 9000:9000
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -63,10 +91,6 @@ jobs:
             fi
           done
 
-      - name: Build kubevirt-plugin image
-        run: |
-          podman build -t kubevirt-plugin:ci -f Dockerfile .
-
       - name: Setup required cluster resources
         run: |
           bash test-setup.sh
@@ -77,12 +101,14 @@ jobs:
           npm config list -l
           npm ci --ignore-scripts --verbose --no-audit
 
-      - name: Start kubevirt-plugin container
+      - name: Wait for kubevirt-plugin container to be ready
         run: |
-          podman run -d --rm --name kubevirt-plugin -p 9001:80 kubevirt-plugin:ci
           echo "Waiting for plugin at http://localhost:9001..."
           for i in $(seq 1 30); do
-            if curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/ | grep -q 200; then break; fi
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:9001/ | grep -q 200; then
+              echo "Plugin is ready"
+              break
+            fi
             [ "$i" -eq 30 ] && (echo "Plugin did not become ready"; exit 1)
             sleep 2
           done
