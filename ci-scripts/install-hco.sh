@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Install HCO (HyperConverged Cluster Operator) and dependencies.
-# Refactored from deploy-kubevirt-gating.sh for use in hot cluster CI.
+# Install HCO (HyperConverged Cluster Operator) and dependencies to the current oc
+# logged in cluster.
 #
 # Environment variables (all have defaults):
 #   KVM_EMULATION          - "true" or "false" (default: "true", only bare metal compute nodes have real KVM)

@@ -36,48 +36,61 @@ jobs:
     runs-on: kubevirt-plugin-ci
     timeout-minutes: 15
     steps:
-      - name: Check the running container environment
-        # shell: bash -x {0}
+      - name: Log environment summary
         run: |
-          echo "*** checking environment ***"
-          env | sort
-          df -h
-          id
-          ls -l / /home /home/runner
-          echo "this is a test" > ${HOME}/test-file || echo "creating ${HOME}test-file failed"
+          {
+            echo "## Runner Environment"
+            echo ""
 
-      - name: Check tools
-        run: |
-          echo "*** checking tools ***"
-          for cmd in jq envsubst curl kubectl oc virtctl docker; do
-            if command -v "$cmd" &>/dev/null; then
-              echo "  $cmd: found"
-            else
-              echo "  $cmd: not found"
-            fi
-          done
+            echo "### Key Environment Variables"
+            echo ""
+            echo "| Variable | Value |"
+            echo "| --- | --- |"
+            for var in HOME USER RUNNER_NAME RUNNER_OS RUNNER_ARCH \
+                       GITHUB_REPOSITORY GITHUB_REF GITHUB_SHA GITHUB_RUN_ID GITHUB_RUN_NUMBER \
+                       BRIDGE_BASE_ADDRESS CYPRESS_CNV_NS CYPRESS_OS_IMAGES_NS \
+                       CYPRESS_TEST_NS KUBEVIRT_PLUGIN_IMAGE KUBEVIRT_UI_PLUGIN_RUNNER; do
+              echo "| \`$var\` | \`${!var:-<unset>}\` |"
+            done
+            echo ""
 
-      - name: Check tool versions
-        run: |
-          echo "*** checking tool versions ***"
-          for cmd in kubectl oc virtctl; do
-            if command -v "$cmd" &>/dev/null; then
-              echo "  $cmd version..."
-              if "$cmd" version; then
-                echo "  $cmd version: OK"
+            echo "### Tool Availability"
+            echo ""
+            echo "| Tool | Available |"
+            echo "| --- | --- |"
+            for cmd in jq yq envsubst curl kubectl oc virtctl docker npm node; do
+              if command -v "$cmd" &>/dev/null; then
+                echo "| \`$cmd\` | ✅ |"
               else
-                echo "  $cmd version: FAILED (exit $?)"
+                echo "| \`$cmd\` | ❌ |"
               fi
-            else
-              echo "  $cmd: not found"
-            fi
-          done
+            done
+            echo ""
 
-      - name: Check npm version and configurations
-        run: |
-          echo "*** checking npm version and configurations ***"
-          npm version
-          npm config list -l
+            echo "### CLI Client / Server Versions"
+            echo ""
+            echo "| Tool | Client Version | Server Version |"
+            echo "| --- | --- | --- |"
+            for cmd in kubectl oc virtctl; do
+              if command -v "$cmd" &>/dev/null; then
+                client=""
+                server=""
+                version_output=$("$cmd" version 2>/dev/null || true)
+                client=$(echo "$version_output" | grep -i "client" | head -1 | sed 's/^[[:space:]]*//')
+                server=$(echo "$version_output" | grep -i "server" | head -1 | sed 's/^[[:space:]]*//')
+                echo "| \`$cmd\` | ${client:-N/A} | ${server:-N/A} |"
+              else
+                echo "| \`$cmd\` | ❌ not found | — |"
+              fi
+            done
+            echo ""
+
+            echo "### npm / Node Versions"
+            echo ""
+            echo "\`\`\`"
+            npm version 2>/dev/null || echo "npm not found"
+            echo "\`\`\`"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
   build-kubevirt-plugin-image:
     name: Build Kubevirt Plugin Image

@@ -21,7 +21,7 @@ ARG VIRTCTL_VERSION=v1.4.0
 
 # Tools used: jq, curl, envsubst (gettext-base)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates jq curl gettext-base \
+    && apt-get install -y --no-install-recommends ca-certificates jq yq curl gettext-base \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
