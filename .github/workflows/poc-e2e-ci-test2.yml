@@ -195,10 +195,9 @@ jobs:
       - name: Setup required namespaced resources
         run: |
           oc create namespace "${CYPRESS_TEST_NS}" --dry-run=client -o yaml | oc apply -f -
-          oc create secret generic "${CYPRESS_TEST_SECRET_NAME}" \
-            -n "${CYPRESS_TEST_NS}" \
-            --from-literal=key=dummy \
-            --dry-run=client -o yaml | oc apply -f -
+          # Patch the existing fixture to substitute the CI secret's namespace and name.
+          yq e '.metadata.name = strenv(CYPRESS_TEST_SECRET_NAME) | .metadata.namespace = strenv(CYPRESS_TEST_NS)' \
+              cypress/fixtures/secret.yaml | oc apply -f -
 
       - name: Start kubevirt-plugin container (mimics operator deployment with a ConfigMap + Secret)
         run: |
