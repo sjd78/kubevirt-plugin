@@ -1,4 +1,7 @@
 #! /bin/bash
+#
+# Start the "off cluster" console.  Based on the `route-console.sh` and `start-console.sh` scripts.
+#
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -97,13 +100,13 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "| Console image | \`${CONSOLE_IMAGE}\` |"
     echo "| Console URL | \`http://localhost:${CONSOLE_PORT}\` |"
     echo "| API server | \`${BRIDGE_K8S_MODE_OFF_CLUSTER_ENDPOINT}\` |"
+    echo "| Thanos URL | \`${BRIDGE_K8S_MODE_OFF_CLUSTER_THANOS:-}(empty)\` |"
+    echo "| Alertmanager URL | \`${BRIDGE_K8S_MODE_OFF_CLUSTER_ALERTMANAGER:-}(empty)\` |"
     echo "| PROXY_ENV | \`${PROXY_ENV:-production}\` |"
-    echo "| Proxy endpoint (kubevirt) | \`${ENDPOINT}\` |"
+    echo "| Proxy endpoint (kubevirt-apiserver-proxy) | \`${ENDPOINT}\` |"
     echo "| Route host | \`${HOSTNAME}\` |"
     echo "| Container runtime | Docker |"
     echo "| BRIDGE_PLUGINS | \`${BRIDGE_PLUGINS}\` |"
-    echo "| Thanos URL | \`${BRIDGE_K8S_MODE_OFF_CLUSTER_THANOS:-}(empty)\` |"
-    echo "| Alertmanager URL | \`${BRIDGE_K8S_MODE_OFF_CLUSTER_ALERTMANAGER:-}(empty)\` |"
     echo ""
     echo "<details><summary>BRIDGE_PLUGIN_PROXY (JSON)</summary>"
     echo ""

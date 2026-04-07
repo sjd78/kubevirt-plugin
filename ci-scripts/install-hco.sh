@@ -1,13 +1,12 @@
 #!/bin/bash
 #
 # Install HCO (HyperConverged Cluster Operator) and dependencies to the current oc
-# logged in cluster.
+# logged in cluster.  Based on the `deploy-kubevirt-gating.sh` script.
 #
 # Environment variables (all have defaults):
 #   KVM_EMULATION          - "true" or "false" (default: "true", only bare metal compute nodes have real KVM)
 #   HCO_IMAGE_VER          - HCO catalog image version
 #   HCO_SUBSCRIPTION_CHANNEL - OLM subscription channel
-#   VIRTCTL_VERSION        - virtctl binary version to download
 #   HPP_VERSION            - HostPath Provisioner release branch
 #   HCO_CR_PATH            - Path to HCO CR yaml (default: cypress/fixtures/hco.yaml)
 #   SKIP_HPP               - Set to "true" to skip HPP installation
@@ -17,7 +16,6 @@ set -euo pipefail
 export KVM_EMULATION="${KVM_EMULATION:-true}"
 export HCO_IMAGE_VER="${HCO_IMAGE_VER:-1.14.0-unstable}"
 export HCO_SUBSCRIPTION_CHANNEL="${HCO_SUBSCRIPTION_CHANNEL:-candidate-v1.14}"
-export VIRTCTL_VERSION="${VIRTCTL_VERSION:-v1.4.0}"
 export HPP_VERSION="${HPP_VERSION:-release-v0.21}"
 HCO_CR_PATH="${HCO_CR_PATH:-cypress/fixtures/hco.yaml}"
 SKIP_HPP="${SKIP_HPP:-false}"
@@ -29,7 +27,6 @@ echo "=== HCO Installation ==="
 echo "  KVM_EMULATION:            ${KVM_EMULATION}"
 echo "  HCO_IMAGE_VER:            ${HCO_IMAGE_VER}"
 echo "  HCO_SUBSCRIPTION_CHANNEL: ${HCO_SUBSCRIPTION_CHANNEL}"
-echo "  VIRTCTL_VERSION:          ${VIRTCTL_VERSION}"
 echo "  HPP_VERSION:              ${HPP_VERSION}"
 echo "  SKIP_HPP:                 ${SKIP_HPP}"
 echo ""
@@ -72,7 +69,7 @@ spec:
   source: hco-unstable-catalog-source
   sourceNamespace: openshift-marketplace
   name: community-kubevirt-hyperconverged
-  channel: ${HCO_SUBSCRIPTION_CHANNEL}
+  channel: "${HCO_SUBSCRIPTION_CHANNEL}"
   config:
     selector:
       matchLabels:
