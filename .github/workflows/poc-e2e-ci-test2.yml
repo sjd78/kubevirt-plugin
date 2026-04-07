@@ -39,9 +39,6 @@ jobs:
       - name: Log environment summary
         run: |
           {
-            echo "## Runner Environment"
-            echo ""
-
             echo "<details><summary>Key Environment Variables</summary>"
             echo ""
             echo "| Variable | Value |"
@@ -81,7 +78,7 @@ jobs:
       - name: Log Client / Server Versions
         run: |
           {
-            echo "## Client / Server Versions"
+            echo "<details><summary>Client / Server Versions</summary>"
             echo ""
             echo "| Tool | Client Version | Server Version |"
             echo "| --- | --- | --- |"
@@ -97,6 +94,7 @@ jobs:
                 echo "| \`$cmd\` | ❌ not found | — |"
               fi
             done
+            echo "</details>"
             echo ""
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -104,7 +102,7 @@ jobs:
         continue-on-error: true
         run: |
           {
-            echo "## HCO & Managed Operator Versions"
+            echo "<details><summary>HCO & Managed Operator Versions</summary>"
             echo ""
 
             if ! command -v oc &>/dev/null; then
@@ -151,6 +149,8 @@ jobs:
                 -o jsonpath='{.items[0].status.observedVersion}' 2>/dev/null || echo "")
               echo "| \`hostpath-provisioner\` | \`${hpp_ver:-not found}\` |"
             fi
+            echo "</details>"
+            echo ""
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
   build-kubevirt-plugin-image:
