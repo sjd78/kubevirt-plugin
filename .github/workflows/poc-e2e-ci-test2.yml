@@ -200,7 +200,7 @@ jobs:
             --from-literal=key=dummy \
             --dry-run=client -o yaml | oc apply -f -
 
-      - name: Start kubevirt-plugin container (mimics operator deployment with ConfigMap + serving certs)
+      - name: Start kubevirt-plugin container (mimics operator deployment with a ConfigMap + Secret)
         run: |
           ./ci-scripts/start-plugin-container.sh
 
