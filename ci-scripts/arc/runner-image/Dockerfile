@@ -18,12 +18,20 @@ ARG NODE_VERSION=22
 ARG OC_VERSION=4.20
 # KubeVirt CLI version to match HCO install (e.g. v1.4.0)
 ARG VIRTCTL_VERSION=v1.4.0
+# Go-based yq (mikefarah/yq) — matches the version on GitHub-hosted ubuntu-latest runners.
+# NOTE: apt's `yq` package is the Python-based yq (kislyuk), which has incompatible syntax.
+ARG YQ_VERSION=v4.52.5
 
 # Tools used: jq, curl, envsubst (gettext-base)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates jq yq curl gettext-base \
+    && apt-get install -y --no-install-recommends ca-certificates jq curl gettext-base \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# yq (Go/mikefarah) — install from GitHub releases to get the same yq as GitHub-hosted runners
+RUN curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" \
+    -o /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq
 
 # Cypress 14+ headless (bundled Electron) — Linux deps for Ubuntu 24.04+ (noble).
 # Official runner image is noble (see actions/runner images/Dockerfile: mcr.microsoft.com/dotnet/runtime-deps:8.0-noble).
