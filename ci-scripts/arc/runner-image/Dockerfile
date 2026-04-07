@@ -21,6 +21,12 @@ ARG VIRTCTL_VERSION=v1.4.0
 # Go-based yq (mikefarah/yq) — matches the version on GitHub-hosted ubuntu-latest runners.
 # NOTE: apt's `yq` package is the Python-based yq (kislyuk), which has incompatible syntax.
 ARG YQ_VERSION=v4.52.5
+# Direct binary download URLs resolved from ConsoleCLIDownload by setup-runner-image.sh.
+# When set, these take precedence over the static mirror/GitHub URLs above and guarantee
+# the binaries match the live cluster. Left empty to use the static fallback URLs.
+ARG OC_URL=""
+ARG KUBECTL_URL=""
+ARG VIRTCTL_URL=""
 
 # Tools used: jq, curl, envsubst (gettext-base)
 RUN apt-get update \
@@ -62,16 +68,30 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# kubectl (stable)
-RUN curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl \
+# kubectl — use console download URL if resolved by setup-runner-image.sh, else dl.k8s.io stable
+RUN if [ -n "${KUBECTL_URL}" ]; then \
+      curl -fsSL "${KUBECTL_URL}" -o /usr/local/bin/kubectl; \
+    else \
+      curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+           -o /usr/local/bin/kubectl; \
+    fi \
     && chmod +x /usr/local/bin/kubectl
 
-# OpenShift client (oc); mirror uses stable-4.x or latest-4.x
-RUN curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${OC_VERSION}/openshift-client-linux.tar.gz" | tar -xzf - -C /usr/local/bin
+# OpenShift client (oc) — use console download URL if resolved, else mirror.openshift.com stable-4.x
+RUN if [ -n "${OC_URL}" ]; then \
+      curl -fsSL "${OC_URL}" | tar -xzf - -C /usr/local/bin oc; \
+    else \
+      curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${OC_VERSION}/openshift-client-linux.tar.gz" \
+           | tar -xzf - -C /usr/local/bin; \
+    fi
 
-# virtctl (KubeVirt CLI)
-RUN VIRTCTL_URL="https://github.com/kubevirt/kubevirt/releases/download/${VIRTCTL_VERSION}/virtctl-${VIRTCTL_VERSION}-linux-amd64" \
-    && curl -fsSL "${VIRTCTL_URL}" -o /usr/local/bin/virtctl \
+# virtctl (KubeVirt CLI) — use console download URL if resolved, else GitHub releases
+RUN if [ -n "${VIRTCTL_URL}" ]; then \
+      curl -fsSL "${VIRTCTL_URL}" -o /usr/local/bin/virtctl; \
+    else \
+      curl -fsSL "https://github.com/kubevirt/kubevirt/releases/download/${VIRTCTL_VERSION}/virtctl-${VIRTCTL_VERSION}-linux-amd64" \
+           -o /usr/local/bin/virtctl; \
+    fi \
     && chmod +x /usr/local/bin/virtctl
 
 USER runner
