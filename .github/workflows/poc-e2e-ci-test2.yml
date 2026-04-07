@@ -246,11 +246,11 @@ jobs:
             sleep 5
           done
 
-      # # TODO: Add dependency caching (either use the setup-node action with caching, or add explicit caching)
-      # - name: Install dependencies
-      #   run: |
-      #     npm ci --ignore-scripts --no-audit
-      #     npx cypress install
+      # TODO: Add dependency caching (either use the setup-node action with caching, or add explicit caching)
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit
+          npx cypress install
 
       # # TODO: Replace with the cypress action?
       # - name: Run Cypress gating tests
@@ -262,8 +262,8 @@ jobs:
       - name: Run gating tests
         uses: cypress-io/github-action@v7
         with:
-          install: true
-          project: ./cypress
+          install: false
+          working-directory: ./cypress
           env: openshift=true
           spec: '${{ inputs.test_spec }}'
           summary-title: 'Cypress gating tests'
