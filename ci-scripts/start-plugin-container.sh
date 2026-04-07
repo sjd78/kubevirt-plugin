@@ -60,7 +60,17 @@ $RUNTIME run -d \
   -p ${PLUGIN_PORT:-9001}:9443 \
   -v "${SCRIPT_DIR}/nginx-9443.conf:/etc/nginx/nginx.conf${VOL_SUFFIX}" \
   -v "${KUBEVIRT_PLUGIN_CERT_DIR}:/var/serving-cert${VOL_SUFFIX}" \
-  "${PLUGIN_IMAGE}" \
-  -g "daemon off;" \
-  -c /etc/nginx/nginx.conf
+  "${PLUGIN_IMAGE}"
 
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  {
+    echo "<details><summary>Kubevirt Plugin Container</summary>"
+    echo ""
+    echo "| Item | Value |"
+    echo "|------|-------|"
+    echo "| Plugin image | \`${PLUGIN_IMAGE}\` |"
+    echo "| Plugin port | \`${PLUGIN_PORT:-9001}\` |"
+    echo ""
+    echo "</details>"
+  } >> "${GITHUB_STEP_SUMMARY}"
+fi

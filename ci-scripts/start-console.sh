@@ -93,7 +93,7 @@ BRIDGE_PLUGINS="kubevirt-plugin=https://host.docker.internal:9001"
 # ---------------------------------------------------------------------------
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
-    echo "### Off-cluster console (CI)"
+    echo "<details><summary>Off-cluster console (CI)</summary>"
     echo ""
     echo "| Item | Value |"
     echo "|------|-------|"
@@ -107,12 +107,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "| Route host | \`${HOSTNAME}\` |"
     echo "| Container runtime | Docker |"
     echo "| BRIDGE_PLUGINS | \`${BRIDGE_PLUGINS}\` |"
-    echo ""
-    echo "<details><summary>BRIDGE_PLUGIN_PROXY (JSON)</summary>"
-    echo ""
-    echo '```json'
-    echo "$BRIDGE_PLUGIN_PROXY" | jq .
-    echo '```'
+    echo "| BRIDGE_PLUGIN_PROXY | \`$(echo "$BRIDGE_PLUGIN_PROXY" | jq -c .)\` |"
     echo ""
     echo "</details>"
   } >> "${GITHUB_STEP_SUMMARY}"
