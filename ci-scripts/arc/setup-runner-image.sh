@@ -107,6 +107,12 @@ spec:
           value: "${OC_VERSION}"
         - name: VIRTCTL_VERSION
           value: "${VIRTCTL_VERSION}"
+        - name: OC_URL
+          value: "${OC_URL}"
+        - name: KUBECTL_URL
+          value: "${KUBECTL_URL}"
+        - name: VIRTCTL_URL
+          value: "${VIRTCTL_URL}"
   output:
     to:
       kind: ImageStreamTag
@@ -114,15 +120,9 @@ spec:
   runPolicy: Serial
 EOF
 
-EXTRA_BUILD_ARGS=()
-[[ -n "${OC_URL}" ]]      && EXTRA_BUILD_ARGS+=(--build-arg "OC_URL=${OC_URL}")
-[[ -n "${KUBECTL_URL}" ]] && EXTRA_BUILD_ARGS+=(--build-arg "KUBECTL_URL=${KUBECTL_URL}")
-[[ -n "${VIRTCTL_URL}" ]] && EXTRA_BUILD_ARGS+=(--build-arg "VIRTCTL_URL=${VIRTCTL_URL}")
-
 echo "Starting binary build from ${RUNNER_IMAGE_DIR}..."
 oc start-build -n "${ARC_RUNNERS_NS}" arc-runner-custom \
   --from-dir="${RUNNER_IMAGE_DIR}" \
-  "${EXTRA_BUILD_ARGS[@]}" \
   --follow
 
 IMAGE_REF="image-registry.openshift-image-registry.svc:5000/${ARC_RUNNERS_NS}/arc-runner-custom:latest"
