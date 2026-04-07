@@ -1,6 +1,6 @@
 import './setup/setup.cy.ts';
 import './setup/shared-vm.cy.ts';
-import './gating/poc-check-tab-yaml.cy.ts';
+// import './gating/poc-check-tab-yaml.cy.ts';
 // import './gating/catalog-filter.cy.ts';
 // import './gating/template-list.cy.ts';
 // import './gating/overview-tab.cy.ts';

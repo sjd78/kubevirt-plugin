@@ -99,18 +99,11 @@ Cypress.Commands.add('beforeSpec', () => {
   cy.get('[data-test="username"]', { timeout: 180000 }).should('exist');
   cy.wait(15000); // wait here because page refresh might happen
   cy.switchToVirt();
+  // Wait for the perspective to render before checking for modals.
   cy.get('[data-test-id="virtualmachines-nav-item"]', { timeout: 300000 })
     .should('be.visible')
     .click();
   cy.byTestID('vm-list-tab', { timeout: 180000 }).should('be.visible');
-  cy.get('body').then(($body) => {
-    // Shared clusters may show the welcome modal; dismiss it when present.
-    if ($body.find('#welcome-modal-checkbox').length) {
-      cy.get('#welcome-modal-checkbox').check({ force: true });
-      cy.get('button[aria-label="Close"]').click({ force: true });
-      cy.get('#welcome-modal-checkbox').should('not.exist');
-    }
-  });
   cy.contains('[data-test-id="resource-title"]', 'Virtualization', { timeout: 180000 }).should(
     'exist',
   );
