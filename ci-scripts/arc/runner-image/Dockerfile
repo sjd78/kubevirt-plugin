@@ -77,17 +77,25 @@ RUN if [ -n "${KUBECTL_URL}" ]; then \
     fi \
     && chmod +x /usr/local/bin/kubectl
 
-# OpenShift client (oc) — use console download URL if resolved, else mirror.openshift.com stable-4.x
+# OpenShift client (oc) — use console download URL if resolved, else mirror.openshift.com stable-4.x.
+# The console route serves a plain .tar (not gzip); download to a temp file so GNU tar can
+# auto-detect the format (-xf, no -z) rather than piping stdin where detection is unavailable.
 RUN if [ -n "${OC_URL}" ]; then \
-      curl -fsSL "${OC_URL}" | tar -xzf - -C /usr/local/bin oc; \
+      curl -fsSL "${OC_URL}" -o /tmp/oc-archive \
+      && tar -xf /tmp/oc-archive -C /usr/local/bin oc \
+      && rm /tmp/oc-archive; \
     else \
       curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${OC_VERSION}/openshift-client-linux.tar.gz" \
            | tar -xzf - -C /usr/local/bin; \
     fi
 
-# virtctl (KubeVirt CLI) — use console download URL if resolved, else GitHub releases
+# virtctl (KubeVirt CLI) — use console download URL if resolved, else GitHub releases direct binary.
+# The console route serves a .tar.gz archive; download to a temp file so GNU tar can
+# auto-detect the format (-xf, no -z) for consistency with the oc block above.
 RUN if [ -n "${VIRTCTL_URL}" ]; then \
-      curl -fsSL "${VIRTCTL_URL}" -o /usr/local/bin/virtctl; \
+      curl -fsSL "${VIRTCTL_URL}" -o /tmp/virtctl-archive \
+      && tar -xf /tmp/virtctl-archive -C /usr/local/bin virtctl \
+      && rm /tmp/virtctl-archive; \
     else \
       curl -fsSL "https://github.com/kubevirt/kubevirt/releases/download/${VIRTCTL_VERSION}/virtctl-${VIRTCTL_VERSION}-linux-amd64" \
            -o /usr/local/bin/virtctl; \

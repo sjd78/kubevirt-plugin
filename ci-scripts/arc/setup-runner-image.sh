@@ -47,18 +47,18 @@ OC_URL=""
 KUBECTL_URL=""
 VIRTCTL_URL=""
 if command -v jq &>/dev/null; then
-  OC_DOWNLOAD_JSON=$(oc get consoleclidownload oc-cli-downloads -o json 2>/dev/null || true)
-  if [[ -n "${OC_DOWNLOAD_JSON}" ]]; then
-    OC_URL=$(echo "${OC_DOWNLOAD_JSON}" \
-      | jq -r '.spec.links[] | select(.text | test("oc.*linux.*x86_64|oc.*linux.*amd64"; "i")) | .href' \
+  CLI_DOWNLOAD_JSON=$(oc get consoleclidownload -o json 2>/dev/null || true)
+  if [[ -n "${CLI_DOWNLOAD_JSON}" ]]; then
+    OC_URL=$(echo "${CLI_DOWNLOAD_JSON}" \
+      | jq -r '.items[].spec.links[] | select(.text | test("oc.*linux.*x86_64|oc.*linux.*amd64"; "i")) | .href' \
       | head -1)
-    KUBECTL_URL=$(echo "${OC_DOWNLOAD_JSON}" \
-      | jq -r '.spec.links[] | select(.text | test("kubectl.*linux.*x86_64|kubectl.*linux.*amd64"; "i")) | .href' \
+    KUBECTL_URL=$(echo "${CLI_DOWNLOAD_JSON}" \
+      | jq -r '.items[].spec.links[] | select(.text | test("kubectl.*linux.*x86_64|kubectl.*linux.*amd64"; "i")) | .href' \
       | head -1)
+    VIRTCTL_URL=$(echo "${CLI_DOWNLOAD_JSON}" \
+      | jq -r '.items[].spec.links[] | select(.text | test("virtctl.*linux.*amd64|virtctl.*linux.*x86_64"; "i")) | .href' \
+      | head -1 || true)
   fi
-  VIRTCTL_URL=$(oc get consoleclidownload -o json 2>/dev/null \
-    | jq -r '.items[].spec.links[] | select(.text | test("virtctl.*linux.*amd64|virtctl.*linux.*x86_64"; "i")) | .href' \
-    | head -1 || true)
 fi
 
 echo "=== Build ARC runner image (in-cluster, OpenShift) ==="
