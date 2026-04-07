@@ -92,6 +92,59 @@ jobs:
             echo "\`\`\`"
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Log HCO and managed operator versions
+        continue-on-error: true
+        run: |
+          {
+            echo "## HCO & Managed Operator Versions"
+            echo ""
+
+            if ! command -v oc &>/dev/null; then
+              echo "> ⚠️ \`oc\` not found — skipping cluster version checks."
+            else
+              # HCO itself is installed via OLM; its CSV is the authoritative version.
+              echo "### HCO Version (OLM CSV)"
+              echo ""
+              echo "| Name | Version | Phase |"
+              echo "| --- | --- | --- |"
+              oc get csv -n kubevirt-hyperconverged --no-headers 2>/dev/null \
+                | grep -i hyperconverged \
+                | awk '{ print "| `" $1 "` | `" $2 "` | " $NF " |" }' \
+                || echo "| — | HCO CSV not found | — |"
+              echo ""
+
+              # HCO labels every operand CR with app.kubernetes.io/managed-by=hco-operator.
+              # Use that label + -A (all namespaces) so we never hardcode a name or namespace.
+              # KubeVirt uses observedKubeVirtVersion; all others use observedVersion.
+              echo "### HCO Managed Operand Versions"
+              echo ""
+              echo "| Operand | Version |"
+              echo "| --- | --- |"
+
+              HCO_LABEL="app.kubernetes.io/managed-by=hco-operator"
+
+              kv_ver=$(oc get kubevirt -A -l "${HCO_LABEL}" \
+                -o jsonpath='{.items[0].status.observedKubeVirtVersion}' 2>/dev/null || echo "")
+              echo "| \`kubevirt\` | \`${kv_ver:-not found}\` |"
+
+              cdi_ver=$(oc get cdi -A -l "${HCO_LABEL}" \
+                -o jsonpath='{.items[0].status.observedVersion}' 2>/dev/null || echo "")
+              echo "| \`cdi\` | \`${cdi_ver:-not found}\` |"
+
+              ssp_ver=$(oc get ssp -A -l "${HCO_LABEL}" \
+                -o jsonpath='{.items[0].status.observedVersion}' 2>/dev/null || echo "")
+              echo "| \`ssp\` | \`${ssp_ver:-not found}\` |"
+
+              cnao_ver=$(oc get networkaddonsconfig -A -l "${HCO_LABEL}" \
+                -o jsonpath='{.items[0].status.observedVersion}' 2>/dev/null || echo "")
+              echo "| \`cnao\` | \`${cnao_ver:-not found}\` |"
+
+              hpp_ver=$(oc get hostpathprovisioner -A -l "${HCO_LABEL}" \
+                -o jsonpath='{.items[0].status.observedVersion}' 2>/dev/null || echo "")
+              echo "| \`hostpath-provisioner\` | \`${hpp_ver:-not found}\` |"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   build-kubevirt-plugin-image:
     name: Build Kubevirt Plugin Image
     needs: check-runner
