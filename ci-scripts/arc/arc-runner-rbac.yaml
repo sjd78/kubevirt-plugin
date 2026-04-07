@@ -44,12 +44,31 @@ rules:
         'persistentvolumeclaims',
       ]
     verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete', 'deletecollection']
+  # Read HCO operand CRs for version logging (Log HCO and managed operator versions step)
+  - apiGroups: ['operators.coreos.com']
+    resources: ['clusterserviceversions']
+    verbs: ['get', 'list']
   - apiGroups: ['kubevirt.io']
-    resources: ['virtualmachines', 'virtualmachineinstances', 'virtualmachineinstancemigrations']
+    resources:
+      [
+        'kubevirts',
+        'virtualmachines',
+        'virtualmachineinstances',
+        'virtualmachineinstancemigrations',
+      ]
     verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
   - apiGroups: ['cdi.kubevirt.io']
-    resources: ['datavolumes']
+    resources: ['cdis', 'datavolumes']
     verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+  - apiGroups: ['ssp.kubevirt.io']
+    resources: ['ssps']
+    verbs: ['get', 'list']
+  - apiGroups: ['networkaddonsoperator.network.kubevirt.io']
+    resources: ['networkaddonsconfigs']
+    verbs: ['get', 'list']
+  - apiGroups: ['hostpathprovisioner.kubevirt.io']
+    resources: ['hostpathprovisioners']
+    verbs: ['get', 'list']
   - apiGroups: ['snapshot.storage.k8s.io']
     resources: ['volumesnapshots']
     verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
