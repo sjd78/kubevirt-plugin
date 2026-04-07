@@ -268,21 +268,6 @@ jobs:
           env: openshift=true
           spec: '${{ inputs.test_spec }}'
 
-      - name: Capture console and plugin container logs
-        if: always()
-        run: |
-          mkdir -p /tmp/e2e-ci-diagnostics/container-logs
-          docker logs console > /tmp/e2e-ci-diagnostics/container-logs/console.log 2>&1 || true
-          docker logs "${PLUGIN_NAME}" > /tmp/e2e-ci-diagnostics/container-logs/kubevirt-plugin.log 2>&1 || true
-
-      - name: Stop console and kubevirt-plugin containers
-        if: always()
-        run: |
-          docker stop console 2>/dev/null || echo "::warning::Could not stop console container"
-          docker rm -f console 2>/dev/null || true
-          docker stop "${PLUGIN_NAME}" 2>/dev/null || echo "::warning::Could not stop ${PLUGIN_NAME} container"
-          docker rm -f "${PLUGIN_NAME}" 2>/dev/null || true
-
       - name: Generate test report
         if: always()
         run: npm run cypress-postreport || true
@@ -299,14 +284,30 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      - name: Capture logs, stop and rm the console and plugin containers
+        if: always()
+        run: |
+          TMP=/tmp/e2e-ci-diagnostics/container-logs
+          mkdir -p "${TMP}"
+
+          docker logs console > "${TMP}/console.log" 2>&1 || true
+          docker stop console || echo "::warning::Could not stop console container"
+          docker rm -f console || true
+
+          docker logs "${PLUGIN_NAME}" > "${TMP}/kubevirt-plugin.log" 2>&1 || true
+          docker stop "${PLUGIN_NAME}" || echo "::warning::Could not stop ${PLUGIN_NAME} container"
+          docker rm -f "${PLUGIN_NAME}" || true
+
       - name: Collect OpenShift cluster diagnostics on failure
         if: failure()
         run: |
-          mkdir -p /tmp/e2e-ci-diagnostics/cluster
-          oc cluster-info dump > /tmp/e2e-ci-diagnostics/cluster/cluster_info.json 2>/dev/null || true
-          oc get pods -n kubevirt-hyperconverged -o wide > /tmp/e2e-ci-diagnostics/cluster/hco_pods.txt 2>/dev/null || true
-          oc get nodes -o wide > /tmp/e2e-ci-diagnostics/cluster/nodes.txt 2>/dev/null || true
-          oc get events -n "${CYPRESS_TEST_NS}" --sort-by='.lastTimestamp' > /tmp/e2e-ci-diagnostics/cluster/test_ns_events.txt 2>/dev/null || true
+          TMP=/tmp/e2e-ci-diagnostics/cluster
+          mkdir -p "${TMP}"
+
+          oc cluster-info dump > "${TMP}/cluster_info.json" 2>/dev/null || true
+          oc get pods -n kubevirt-hyperconverged -o wide > "${TMP}/hco_pods.txt" 2>/dev/null || true
+          oc get nodes -o wide > "${TMP}/nodes.txt" 2>/dev/null || true
+          oc get events -n "${CYPRESS_TEST_NS}" --sort-by='.lastTimestamp' > "${TMP}/test_ns_events.txt" 2>/dev/null || true
 
       - name: Upload E2E diagnostics (cluster + container logs) on failure
         if: failure()
@@ -320,8 +321,6 @@ jobs:
       # TODO: Add any other cleanup steps that are required for the test to this step
       - name: Cleanup cluster resources
         if: always()
-        env:
-          TEST_NS: ${{ env.CYPRESS_TEST_NS }}
         run: |
           ./test-cleanup.sh || echo "::warning::Cleanup encountered errors (non-fatal)"
-          oc delete namespace "${TEST_NS}" --wait=false || true
+          oc delete namespace "${CYPRESS_TEST_NS}" --wait=false || true
