@@ -27,7 +27,7 @@ rules:
     resources: ['nodes', 'namespaces']
     verbs: ['get', 'list']
   - apiGroups: ['config.openshift.io']
-    resources: ['consoles', 'clusterversions']
+    resources: ['consoles', 'clusterversions', 'ingresses']
     verbs: ['get', 'list']
   # Create/delete test namespaces and manage resources for Cypress
   - apiGroups: ['']
