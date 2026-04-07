@@ -93,7 +93,7 @@ BRIDGE_PLUGINS="kubevirt-plugin=https://host.docker.internal:9001"
 # ---------------------------------------------------------------------------
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
-    echo "## Off-cluster console (CI)"
+    echo "### Off-cluster console (CI)"
     echo ""
     echo "| Item | Value |"
     echo "|------|-------|"

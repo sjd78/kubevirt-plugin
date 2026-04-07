@@ -33,6 +33,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     echo "### Off-cluster console image"
     echo ""
-    echo "Cluster version **${VERSION}** → \`CONSOLE_IMAGE=${CONSOLE_IMAGE}\`"
+    echo "Cluster version: **${VERSION}**"
+    echo "Console image: \`${CONSOLE_IMAGE}\`"
   } >> "${GITHUB_STEP_SUMMARY}"
 fi
