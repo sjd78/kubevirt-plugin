@@ -28,26 +28,26 @@ Keeping the cluster **up** avoids repeating **~1 hour** (or more) of create time
 
 ## ARC (Actions Runner Controller)
 
-**ARC** is GitHub’s supported way to run **self-hosted Actions runners on Kubernetes**. A **controller** enables a **runner scale set** to provide self-hosted runners to your repo's workflows. When a job requests a `runs-on` label that matches the runner scale set, ARC starts a **runner pod** that registers with GitHub, runs the job, then exits. Each run is container inside an ephemeral runner.
+**ARC** is GitHub’s supported way to run **self-hosted Actions runners on Kubernetes**. A **controller** enables a **runner scale set** to provide self-hosted runners to your repo's workflows. When a job requests a `runs-on` label that matches the runner scale set, ARC starts a **runner pod** that registers with GitHub, runs the job, then exits. Each run is a container inside an ephemeral runner.
 
 In this repo, ARC is installed with Helm charts **`gha-runner-scale-set-controller`** (once per cluster) and **`gha-runner-scale-set`** (once for each runner scale set needed).
 
 To best support running in OpenShift, and the specific needs of the kubevirt-plugin test stack, first the scripts **`setup-dind-mirror.sh`** (to mirror `docker:dind` into the cluster registry) and **`setup-runner-image.sh`** (build a **custom runner image** with node and cypress support, etc.) are run.
 
-Once the images are available, two scripts are used to full setup the ARC install:
+Once the images are available, two scripts are used to fully setup the ARC install:
 
 - **`ci-scripts/arc/install-arc-controller.sh`** — controller namespace, SCC, controller Helm release.
 - **`ci-scripts/arc/install-runner-scale-set.sh`** — runner scale set, dind post-render, SCC bind for runner pods, RBAC for `oc` in CI jobs.
 
-Runners default to **Docker-in-Docker (dind)** so workflow steps can use **`docker run`** (needed for the off-cluster console flow). GitHub authenticates ARC to the repo via a **GitHub App** (recommended) or a **PAT**. Specific details on setup and secretes needed are in **[ci-scripts/arc/README.md](ci-scripts/arc/README.md)** and **[ci-scripts/README.md](ci-scripts/README.md)**.
+Runners default to **Docker-in-Docker (dind)** so workflow steps can use **`docker run`**. This is needed for the off-cluster console flow. GitHub authenticates ARC to the repo via a **GitHub App** (recommended) or a **PAT**. Specific details on setup and secretes needed are in **[ci-scripts/arc/README.md](ci-scripts/arc/README.md)** and **[ci-scripts/README.md](ci-scripts/README.md)**.
 
 ---
 
 ## Self-hosted runner and off-cluster E2E
 
-E2E jobs use **`runs-on: kubevirt-plugin-ci`** so they execute **on the cluster** (close to the API and with `oc` RBAC), but the **OpenShift console** under test is started **off-cluster**, similar to local development:
+E2E workflows can have jobs that use **`runs-on: kubevirt-plugin-ci`** so they execute **on the cluster** in the ARC ephemeral runners. The runners are close to the API and with `oc` RBAC. The **OpenShift console** under test is started **off-cluster**, similar to local development:
 
-1. A workflow job builds a kubevirt-plugin container specific for the workflow run, either from the workflow's running branch or, in the future, from a PR's branch, and pushes the container to an ephemeral container repo (ttl.sh currently).
+1. A workflow job builds a kubevirt-plugin container specific for the workflow run, either from the workflow's running branch or, in the future, from a PR's branch, and pushes the container to an ephemeral container repo (ttl.sh currently). As long as the container repo being pushed to can be pulled from the cluster, the container build can run on standard GitHub runners.
 2. **`ci-scripts/resolve-console-image.sh`** picks an **`origin-console`** image tag that matches the cluster’s OpenShift **x.y** version.
 3. **`ci-scripts/start-plugin-container.sh`** runs the **plugin** image with HTTPS and nginx (like the operator-mounted serving certs pattern).
 4. **`ci-scripts/start-console.sh`** runs the **bridge** in **off-cluster** mode: bearer token and API endpoint from `oc`, **plugin URL** pointing at the plugin container on the runner host, and optional **kubevirt API proxy** via a cluster Route.
