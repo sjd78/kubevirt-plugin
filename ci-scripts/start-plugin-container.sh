@@ -25,7 +25,11 @@ if [[ -z "${PLUGIN_IMAGE:-}" ]]; then
   PLUGIN_IMAGE="localhost/kubevirt-plugin:local"
   $RUNTIME build -t "${PLUGIN_IMAGE}" -f Dockerfile "${REPO_ROOT}"
 fi
+
+PLUGIN_PORT=${PLUGIN_PORT:-9001}
+
 echo "Using PLUGIN_IMAGE: ${PLUGIN_IMAGE}"
+echo "Using PLUGIN_PORT: ${PLUGIN_PORT}"
 
 #
 # Create the self-signed certs
@@ -43,6 +47,21 @@ openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
   -addext "subjectAltName=DNS:localhost,DNS:host.docker.internal"
 chmod a+rx "${KUBEVIRT_PLUGIN_CERT_DIR}"
 chmod a+r "${KUBEVIRT_PLUGIN_CERT_DIR}/tls.crt" "${KUBEVIRT_PLUGIN_CERT_DIR}/tls.key"
+
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  {
+    echo "<details><summary>Kubevirt Plugin Container</summary>"
+    echo ""
+    echo "| Item | Value |"
+    echo "|------|-------|"
+    echo "| Plugin image | \`${PLUGIN_IMAGE}\` |"
+    echo "| Plugin port | \`${PLUGIN_PORT}\` |"
+    echo "| Container name | \`${PLUGIN_NAME}\` |"
+    echo "| Container runtime | \`${RUNTIME}\` |"
+    echo ""
+    echo "</details>"
+  } >> "${GITHUB_STEP_SUMMARY}"
+fi
 
 #
 # Start the plugin container with the self-signed certs and nginx `nginx-9443.conf` config
