@@ -12,7 +12,6 @@ elif command -v podman &>/dev/null; then
 else
   RUNTIME=$(command -v docker)
 fi
-PLUGIN_NAME=${PLUGIN_NAME:-kubevirt-plugin-ci}
 
 # :z is for Podman SELinux; plain Docker (incl. dind) uses :ro only.
 VOL_SUFFIX=":ro"
@@ -26,9 +25,11 @@ if [[ -z "${PLUGIN_IMAGE:-}" ]]; then
   $RUNTIME build -t "${PLUGIN_IMAGE}" -f Dockerfile "${REPO_ROOT}"
 fi
 
+PLUGIN_NAME=${PLUGIN_NAME:-kubevirt-plugin-ci}
 PLUGIN_PORT=${PLUGIN_PORT:-9001}
 
 echo "Using PLUGIN_IMAGE: ${PLUGIN_IMAGE}"
+echo "Using PLUGIN_NAME: ${PLUGIN_NAME}"
 echo "Using PLUGIN_PORT: ${PLUGIN_PORT}"
 
 #
@@ -38,7 +39,8 @@ echo "Using PLUGIN_PORT: ${PLUGIN_PORT}"
 # $TMPDIR (e.g. /home/runner/.tmp) are often not shared with dind, so the mount appears empty in the
 # container and nginx fails: cannot load certificate "/var/serving-cert/tls.crt". Use the workspace.
 #
-CERT_PARENT="${GITHUB_WORKSPACE:-${REPO_ROOT}}"
+CERT_PARENT="${REPO_ROOT}/ci-scripts/generated"
+mkdir -p "${CERT_PARENT}" || true
 KUBEVIRT_PLUGIN_CERT_DIR=$(mktemp -d "${CERT_PARENT}/.tmp-plugin-cert.XXXXXX")
 openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
   -keyout "${KUBEVIRT_PLUGIN_CERT_DIR}/tls.key" \
@@ -68,28 +70,20 @@ fi
 # mounted into the container.  This emulates how the pod is deployed with the kubevirt operator
 # using a ConfigMap and Secrets mounted into the container.
 #
-# Do not use the image CMD (/usr/libexec/s2i/run): it rewrites /etc/nginx/nginx.conf, which fails
-# when this path is a read-only bind mount — the container then exits immediately (--rm removes it).
-# Run nginx in the foreground with our config instead (same pattern as openshift/console plugin images).
-#
 $RUNTIME rm -f "${PLUGIN_NAME}" 2>/dev/null || true
 $RUNTIME run -d \
   --name "${PLUGIN_NAME}" \
-  --entrypoint nginx \
-  -p ${PLUGIN_PORT:-9001}:9443 \
+  -p "${PLUGIN_PORT}:9443" \
   -v "${SCRIPT_DIR}/nginx-9443.conf:/etc/nginx/nginx.conf${VOL_SUFFIX}" \
   -v "${KUBEVIRT_PLUGIN_CERT_DIR}:/var/serving-cert${VOL_SUFFIX}" \
-  "${PLUGIN_IMAGE}"
+  ${PLUGIN_IMAGE}
 
-if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-  {
-    echo "<details><summary>Kubevirt Plugin Container</summary>"
-    echo ""
-    echo "| Item | Value |"
-    echo "|------|-------|"
-    echo "| Plugin image | \`${PLUGIN_IMAGE}\` |"
-    echo "| Plugin port | \`${PLUGIN_PORT:-9001}\` |"
-    echo ""
-    echo "</details>"
-  } >> "${GITHUB_STEP_SUMMARY}"
-fi
+  # --entrypoint nginx \
+  # "${PLUGIN_IMAGE}" \
+  # -g "daemon off;" \
+  # -c /etc/nginx/nginx.conf
+
+#
+# Note: If this run with podman, the IPv6 port is captured but not mapped to nginx.  So,
+#       using localhost:${PLUGIN_PORT} may not work. Use 127.0.0.1:${PLUGIN_PORT} instead.
+#
