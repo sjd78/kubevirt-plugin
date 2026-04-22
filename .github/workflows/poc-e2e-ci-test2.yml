@@ -235,6 +235,40 @@ jobs:
             .metadata.namespace = strenv(CYPRESS_TEST_NS)
           ' cypress/fixtures/secret.yaml | oc apply -f -
 
+      - name: Seed kubevirt-user-settings ConfigMap
+        run: |
+          # Derive the Helm release name (controller stores it in the CI env CM).
+          HELM_RELEASE="$(oc get configmap "${CI_ENV_CM}" -n "${CI_ENV_NS}" \
+            -o jsonpath='{.data.helm-release}' 2>/dev/null || echo "${CI_ENV_CM}")"
+          SA_NAME="${HELM_RELEASE}-console"
+
+          # The plugin hook (useKubevirtUserSettings) keys settings by:
+          #   user?.metadata?.uid  OR  sanitized(user?.metadata?.name)
+          # In no-auth mode the SA bearer token is used for all k8s calls, so
+          # users/~ returns a virtual user for system:serviceaccount:<ns>:<sa>.
+          # We patch both the SA UID and the sanitized name so the hook always
+          # finds the right key regardless of whether OpenShift populates the UID.
+          SA_UID="$(oc get sa "${SA_NAME}" -n "${CYPRESS_TEST_NS}" \
+            -o jsonpath='{.metadata.uid}' 2>/dev/null || true)"
+          SANITIZED_NAME="system-serviceaccount-${CYPRESS_TEST_NS}-${SA_NAME}"
+
+          USER_SETTINGS='{"quickStart":{"dontShowWelcomeModal":true},"onboardingPopoversHidden":{"vmsTab":true,"catalog":true,"createProject":true}}'
+
+          # Create the ConfigMap if HCO has not done so yet.
+          if ! oc get configmap kubevirt-user-settings -n "${CYPRESS_CNV_NS}" &>/dev/null; then
+            oc create configmap kubevirt-user-settings -n "${CYPRESS_CNV_NS}"
+          fi
+
+          # Build a merge-patch that sets both possible user keys.
+          PATCH=$(jq -cn \
+            --arg sa_uid    "${SA_UID}" \
+            --arg name_key  "${SANITIZED_NAME}" \
+            --arg val       "${USER_SETTINGS}" \
+            '{data: (if ($sa_uid | length) > 0 then {($sa_uid): $val, ($name_key): $val} else {($name_key): $val} end)}')
+
+          oc patch configmap kubevirt-user-settings -n "${CYPRESS_CNV_NS}" \
+            --type merge -p "${PATCH}"
+
       # TODO: Add dependency caching (either use the setup-node action with caching, or add explicit caching)
       - name: Install dependencies
         run: |
