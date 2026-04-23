@@ -227,6 +227,7 @@ jobs:
           plugin-image: ${{ env.PLUGIN_IMAGE }}
           test-namespace: ${{ env.CYPRESS_TEST_NS }}
           configmap-name: ${{ env.CI_ENV_CM }}
+          ci-env-namespace: ${{ env.CI_ENV_NS }}
 
       - name: Create test secret
         run: |
@@ -237,10 +238,9 @@ jobs:
 
       - name: Seed kubevirt-user-settings ConfigMap
         run: |
-          # Derive the Helm release name (controller stores it in the CI env CM).
-          HELM_RELEASE="$(oc get configmap "${CI_ENV_CM}" -n "${CI_ENV_NS}" \
-            -o jsonpath='{.data.helm-release}' 2>/dev/null || echo "${CI_ENV_CM}")"
-          SA_NAME="${HELM_RELEASE}-console"
+          # The ci-env-controller sets helm_release=cm_name when no override is
+          # provided, so CI_ENV_CM is always the Helm release name.
+          SA_NAME="${CI_ENV_CM}-console"
 
           # The plugin hook (useKubevirtUserSettings) keys settings by:
           #   user?.metadata?.uid  OR  sanitized(user?.metadata?.name)
@@ -348,3 +348,4 @@ jobs:
         uses: ./.github/actions/ci-env-release
         with:
           configmap-name: ${{ env.CI_ENV_CM }}
+          ci-env-namespace: ${{ env.CI_ENV_NS }}
